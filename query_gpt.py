@@ -7,9 +7,9 @@ import datetime
 #openai.api_key = "your-api-key-here"
 
 # Option 2: Use environment variable (more secure)
-api_key = os.environ.get("DEEPSEEK_API_KEY")
+api_key = os.environ.get("OPENAI_API_KEY")
 
-def query_deepseek(prompt, schedule, model="deepseek-reasoner"):
+def query_gpt(prompt, schedule, model="gpt-4o-mini"):
     """
     Send a query to the DeepSeek API and return the response.
     
@@ -21,7 +21,7 @@ def query_deepseek(prompt, schedule, model="deepseek-reasoner"):
         str: The model's response text
     """
     try:
-        client = openai.OpenAI(api_key=api_key, base_url="https://api.deepseek.com")
+        client = openai.OpenAI(api_key=api_key)
         current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
         schedule = schedule
         prompt = f"""
@@ -114,7 +114,7 @@ def query_deepseek(prompt, schedule, model="deepseek-reasoner"):
                 {"role": "user", "content": prompt},
             ],
             stream=False,
-            max_tokens=512,
+            max_tokens=1024,
             temperature=0.5
         )
 

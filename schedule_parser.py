@@ -664,7 +664,7 @@ class TimetableProcessor:
             
             return events
             
-    def format_events_as_llm_output(self, events=None, include_header=True):
+    def format_events_as_llm_output(self, events=None, include_header=False):
         """
         Format events in the same structure as LLM output but without the '变动' field.
         
