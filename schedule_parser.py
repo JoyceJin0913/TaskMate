@@ -122,84 +122,185 @@ class TimetableProcessor:
             'warnings': []
         }
         
-        for event in events:
+        # First, collect all modifications so we can process them together
+        modifications = [event for event in events if event['action'] == '更改']
+        additions = [event for event in events if event['action'] == '新增']
+        deletions = [event for event in events if event['action'] == '删除']
+        unchanged = [event for event in events if event['action'] == '无']
+        unknown = [event for event in events if event['action'] not in ['新增', '更改', '删除', '无']]
+        
+        # Process deletions first
+        for event in deletions:
             try:
-                if event['action'] == '新增':
-                    try:
-                        # Check for exact duplicates
-                        if self._check_duplicate_event(event):
-                            summary['warnings'].append(f"Skipped duplicate event: '{event['title']}' already exists with identical details")
-                            summary['skipped'] += 1
-                            continue
-                            
-                        # Check for time conflicts
-                        conflicts = self._check_time_conflict(event)
-                        if conflicts:
-                            conflict_details = [f"'{c['title']}' ({c['time_range']})" for c in conflicts]
-                            conflict_msg = f"Time conflict for '{event['title']}' with events: {', '.join(conflict_details)}"
-                            
-                            if handle_conflicts == 'error':
-                                raise ValueError(conflict_msg)
-                            elif handle_conflicts == 'skip':
-                                summary['warnings'].append(f"Skipped event due to {conflict_msg}")
-                                summary['skipped'] += 1
-                                continue
-                            else:  # 'force'
-                                summary['warnings'].append(f"Added event despite {conflict_msg}")
-                        
-                        # If we get here, add the event
-                        self._add_event_no_check(event)
-                        summary['added'] += 1
-                        
-                    except ValueError as ve:
-                        if handle_conflicts == 'error':
-                            raise ve
-                        summary['warnings'].append(str(ve))
-                        summary['skipped'] += 1
-                
-                elif event['action'] == '更改':
-                    # For updates, we'll do a more careful conflict check
-                    # First, get existing events with the same title on the same date
-                    existing_events = []
-                    
-                    if self.database_type == "sqlite":
-                        conn = sqlite3.connect(self.db_path)
-                        conn.row_factory = sqlite3.Row
-                        cursor = conn.cursor()
-                        
-                        cursor.execute(
-                            'SELECT * FROM timetable WHERE title = ? AND date = ?', 
-                            (event['title'], event['date'])
-                        )
-                        
-                        existing_events = [dict(row) for row in cursor.fetchall()]
-                        conn.close()
-                    
-                    # Then check conflicts excluding the event being modified
-                    if existing_events:
-                        # Mark the event as being modified to exclude it from conflict checks
-                        event['is_being_modified'] = True
-                        
-                        conflicts = self._check_time_conflict(event)
-                        if conflicts and handle_conflicts == 'error':
-                            conflict_details = [f"'{c['title']}' ({c['time_range']})" for c in conflicts]
-                            raise ValueError(f"Cannot modify event '{event['title']}' due to time conflict with: {', '.join(conflict_details)}")
-                    
-                    self._modify_event(event)
-                    summary['modified'] += 1
-                    
-                elif event['action'] == '删除':
-                    self._delete_event(event)
-                    summary['deleted'] += 1
-                    
-                elif event['action'] == '无':
-                    summary['unchanged'] += 1
-                    
-                else:
-                    summary['errors'].append(f"Unknown action '{event['action']}' for event '{event['title']}'")
-                    
+                self._delete_event(event)
+                summary['deleted'] += 1
             except Exception as e:
                 summary['errors'].append(f"Error processing event '{event['title']}': {str(e)}")
+        
+        # Process modifications next, with awareness of all modifications in the batch
+        # First, retrieve the current state of all events being modified
+        current_events_map = {}
+        future_events_map = {}
+        
+        # Group modifications by date for easier conflict checking
+        mods_by_date = {}
+        for event in modifications:
+            date = event['date']
+            if date not in mods_by_date:
+                mods_by_date[date] = []
+            mods_by_date[date].append(event)
+            
+            # Store the future state of this event
+            event_key = f"{event['title']}|{event['date']}"
+            future_events_map[event_key] = event
+        
+        # Process each date's modifications
+        for date, date_mods in mods_by_date.items():
+            # Get current events for this date
+            current_events = self.get_events_for_date(date)
+            
+            # Store current state for reference
+            for event in current_events:
+                event_key = f"{event['title']}|{event['date']}"
+                current_events_map[event_key] = event
+            
+            # Check for conflicts between modifications themselves
+            for i, mod1 in enumerate(date_mods):
+                try:
+                    mod1_start, mod1_end = self._parse_time_range(mod1['time_range'])
+                    
+                    # Check against other modifications
+                    conflicts = []
+                    for j, mod2 in enumerate(date_mods):
+                        if i == j:  # Skip self
+                            continue
+                            
+                        try:
+                            mod2_start, mod2_end = self._parse_time_range(mod2['time_range'])
+                            
+                            # Check for overlap
+                            if (mod1_start < mod2_end and mod1_end > mod2_start):
+                                conflicts.append(mod2)
+                        except ValueError:
+                            continue
+                    
+                    if conflicts and handle_conflicts == 'error':
+                        conflict_details = [f"'{c['title']}' ({c['time_range']})" for c in conflicts]
+                        raise ValueError(f"Conflict between modifications: '{mod1['title']}' would conflict with {', '.join(conflict_details)}")
+                        
+                except ValueError as ve:
+                    if handle_conflicts == 'error':
+                        summary['errors'].append(f"Error processing event '{mod1['title']}': {str(ve)}")
+                        # Skip this modification
+                        date_mods[i]['skip'] = True
+                    
+                except Exception as e:
+                    summary['errors'].append(f"Error processing event '{mod1['title']}': {str(e)}")
+                    # Skip this modification
+                    date_mods[i]['skip'] = True
+            
+            # Process the modifications that don't have conflicts with each other
+            for mod in date_mods:
+                if mod.get('skip'):
+                    summary['skipped'] += 1
+                    continue
+                    
+                try:
+                    self._modify_event(mod)
+                    summary['modified'] += 1
+                except Exception as e:
+                    summary['errors'].append(f"Error processing event '{mod['title']}': {str(e)}")
+        
+        # Process additions last, with awareness of modifications and other additions
+        for event in additions:
+            try:
+                # Check for exact duplicates
+                if self._check_duplicate_event(event):
+                    summary['warnings'].append(f"Skipped duplicate event: '{event['title']}' already exists with identical details")
+                    summary['skipped'] += 1
+                    continue
+                
+                # Check for conflicts with existing events (excluding deleted ones)
+                # and with newly added events
+                date_events = self.get_events_for_date(event['date'])
+                
+                # Filter out events that we've just deleted
+                date_events = [e for e in date_events if not any(
+                    d['title'] == e['title'] and d['date'] == e['date'] and d['time_range'] == e['time_range']
+                    for d in deletions
+                )]
+                
+                # Add events that we've just modified or added
+                for mod in modifications:
+                    if mod['date'] == event['date'] and not mod.get('skip'):
+                        # This is a simplified representation of the modified event
+                        date_events.append({
+                            'title': mod['title'],
+                            'date': mod['date'],
+                            'time_range': mod['time_range']
+                        })
+                
+                # Add events that we've already processed in this batch
+                for added in additions:
+                    if added['date'] == event['date'] and added != event and added.get('processed'):
+                        date_events.append({
+                            'title': added['title'],
+                            'date': added['date'],
+                            'time_range': added['time_range']
+                        })
+                
+                # Now check for conflicts
+                conflicts = []
+                try:
+                    event_start, event_end = self._parse_time_range(event['time_range'])
+                    
+                    for other in date_events:
+                        try:
+                            other_start, other_end = self._parse_time_range(other['time_range'])
+                            
+                            # Check for overlap
+                            if (event_start < other_end and event_end > other_start):
+                                conflicts.append(other)
+                        except ValueError:
+                            continue
+                    
+                except ValueError:
+                    # Skip conflict check if we can't parse time
+                    pass
+                
+                if conflicts:
+                    conflict_details = [f"'{c['title']}' ({c['time_range']})" for c in conflicts]
+                    conflict_msg = f"Time conflict for '{event['title']}' with events: {', '.join(conflict_details)}"
+                    
+                    if handle_conflicts == 'error':
+                        raise ValueError(conflict_msg)
+                    elif handle_conflicts == 'skip':
+                        summary['warnings'].append(f"Skipped event due to {conflict_msg}")
+                        summary['skipped'] += 1
+                        continue
+                    else:  # 'force'
+                        summary['warnings'].append(f"Added event despite {conflict_msg}")
+                
+                # If we get here, add the event
+                self._add_event_no_check(event)
+                event['processed'] = True  # Mark as processed for subsequent conflict checks
+                summary['added'] += 1
+                
+            except ValueError as ve:
+                if handle_conflicts == 'error':
+                    summary['errors'].append(f"Error processing event '{event['title']}': {str(ve)}")
+                summary['warnings'].append(str(ve))
+                summary['skipped'] += 1
+                
+            except Exception as e:
+                summary['errors'].append(f"Error processing event '{event['title']}': {str(e)}")
+        
+        # Count unchanged events
+        summary['unchanged'] = len(unchanged)
+        
+        # Process unknown actions
+        for event in unknown:
+            summary['errors'].append(f"Unknown action '{event['action']}' for event '{event['title']}'")
         
         return summary
         
@@ -766,3 +867,108 @@ class TimetableProcessor:
             
             return sorted(events, key=lambda x: x['time_range'])
 
+    def format_events_with_changes(self, old_events, new_events, include_header=False):
+        """
+        Format events with visual indicators showing changes between old and new states.
+        
+        Args:
+            old_events (list): List of event dictionaries representing the old state
+            new_events (list): List of event dictionaries representing the new state
+            include_header (bool): Whether to include the header
+            
+        Returns:
+            str: Formatted string showing changes with visual indicators:
+                [+] for new events
+                [-] for deleted events
+                [*] for modified events
+                [ ] for unchanged events
+        """
+        # Create dictionaries for easy lookup
+        old_events_dict = {(e.get('title', ''), e.get('date', '')): e for e in old_events}
+        new_events_dict = {(e.get('title', ''), e.get('date', '')): e for e in new_events}
+        
+        # Collect all unique event keys
+        all_keys = set(old_events_dict.keys()) | set(new_events_dict.keys())
+        
+        # Start building the output
+        output = []
+        if include_header:
+            output.append("日程变更明细：")
+            output.append("-" * 40)
+        
+        # Sort keys by date and title
+        sorted_keys = sorted(all_keys, key=lambda x: (x[1], x[0]))
+        
+        for title, date in sorted_keys:
+            old_event = old_events_dict.get((title, date))
+            new_event = new_events_dict.get((title, date))
+            
+            if old_event and new_event:
+                # Check if event was modified
+                is_modified = False
+                changes = []
+                
+                # Compare each field
+                fields_to_check = [
+                    ('time_range', '时间段'),
+                    ('event_type', '类型'),
+                    ('deadline', '截止日期'),
+                    ('importance', '重要程度')
+                ]
+                
+                for field, field_name in fields_to_check:
+                    old_val = str(old_event.get(field, ''))
+                    new_val = str(new_event.get(field, ''))
+                    if old_val != new_val:
+                        is_modified = True
+                        changes.append(f"{field_name}: {old_val} → {new_val}")
+                
+                if is_modified:
+                    # Event was modified
+                    event_lines = [
+                        f"[*] 事项: {title} (已修改)",
+                        f"    日期: {date}",
+                    ]
+                    event_lines.extend(f"    {change}" for change in changes)
+                else:
+                    # Event unchanged
+                    event_lines = [
+                        f"[ ] 事项: {title}",
+                        f"    日期: {date}",
+                        f"    时间段: {new_event.get('time_range', '')}",
+                        f"    类型: {new_event.get('event_type', '')}"
+                    ]
+                    if new_event.get('deadline'):
+                        event_lines.append(f"    截止日期：{new_event['deadline']}")
+                    if new_event.get('importance'):
+                        event_lines.append(f"    重要程度：{new_event['importance']}")
+            
+            elif new_event:
+                # New event added
+                event_lines = [
+                    f"[+] 事项: {title} (新增)",
+                    f"    日期: {date}",
+                    f"    时间段: {new_event.get('time_range', '')}",
+                    f"    类型: {new_event.get('event_type', '')}"
+                ]
+                if new_event.get('deadline'):
+                    event_lines.append(f"    截止日期：{new_event['deadline']}")
+                if new_event.get('importance'):
+                    event_lines.append(f"    重要程度：{new_event['importance']}")
+            
+            else:
+                # Event was deleted
+                event_lines = [
+                    f"[-] 事项: {title} (已删除)",
+                    f"    日期: {date}",
+                    f"    时间段: {old_event.get('time_range', '')}",
+                    f"    类型: {old_event.get('event_type', '')}"
+                ]
+                if old_event.get('deadline'):
+                    event_lines.append(f"    截止日期：{old_event['deadline']}")
+                if old_event.get('importance'):
+                    event_lines.append(f"    重要程度：{old_event['importance']}")
+            
+            output.append("\n".join(event_lines))
+        
+        return "\n\n".join(output)

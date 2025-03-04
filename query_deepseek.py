@@ -23,8 +23,8 @@ def query_deepseek(prompt, schedule, model="deepseek-chat"):
     try:
         client = openai.OpenAI(api_key=api_key, base_url="https://api.deepseek.com")
         current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
-        schedule = schedule
-        prompt = f"""
+        system_prompt = """您是一名专业的时间规划师，精通GTD工作法和敏捷项目管理。请根据用户提供的待办事项和现有时间表，完成以下任务："""
+        user_prompt = f"""
 【处理规则】
 
 基本规则：
@@ -49,11 +49,11 @@ def query_deepseek(prompt, schedule, model="deepseek-chat"):
 若任务是固定日程，则重要程度为5
 
 变动：
-输出时变动有四种：新增、更改、删除、无
+输出时变动有三种：新增、更改、删除
 新增：任务是新添加的，只要是用户提出的新事件，就需要输出此类以将其添加到时间表中，安排时段优先根据用户要求，若无要求则根据任务重要程度和紧急程度安排
 更改：任务是已存在的，但需要修改，可因为用户要求，或是有其他更为紧急的任务，输出的时段为更改后的时段
 删除：任务是已存在的，但需要删除，只有在用户要求删除时输出，输出时时间段可保持不变
-无：任务是已存在的，但不需要修改，除用户明确要求外不要输出
+其余无变动任务无需输出
 
 【特殊规则】
 
@@ -123,6 +123,7 @@ def query_deepseek(prompt, schedule, model="deepseek-chat"):
 
 
 请根据以上指令完成以下任务规划，并严格遵守输出格式，无需进行任何额外说明与解释：
+
 【输入】
 当前时间：{current_time}
 
@@ -138,12 +139,12 @@ def query_deepseek(prompt, schedule, model="deepseek-chat"):
         response = client.chat.completions.create(
             model=model,
             messages=[
-                {"role": "system", "content": "您是一名专业的时间规划师，精通GTD工作法和敏捷项目管理。请根据用户提供的待办事项和现有时间表，完成以下任务："},
-                {"role": "user", "content": prompt},
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
             ],
             stream=False,
-            max_tokens=512,
-            temperature=0.5
+            max_tokens=1024,
+            temperature=0.2
         )
 
         return response.choices[0].message.content
