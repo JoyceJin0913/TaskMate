@@ -158,11 +158,32 @@ class TimetableProcessor:
                         summary['skipped'] += 1
                 
                 elif event['action'] == '更改':
-                    # For updates, we'll allow modifying event details but still check for time conflicts
-                    conflicts = self._check_time_conflict(event)
-                    if conflicts and handle_conflicts == 'error':
-                        conflict_details = [f"'{c['title']}' ({c['time_range']})" for c in conflicts]
-                        raise ValueError(f"Cannot modify event '{event['title']}' due to time conflict with: {', '.join(conflict_details)}")
+                    # For updates, we'll do a more careful conflict check
+                    # First, get existing events with the same title on the same date
+                    existing_events = []
+                    
+                    if self.database_type == "sqlite":
+                        conn = sqlite3.connect(self.db_path)
+                        conn.row_factory = sqlite3.Row
+                        cursor = conn.cursor()
+                        
+                        cursor.execute(
+                            'SELECT * FROM timetable WHERE title = ? AND date = ?', 
+                            (event['title'], event['date'])
+                        )
+                        
+                        existing_events = [dict(row) for row in cursor.fetchall()]
+                        conn.close()
+                    
+                    # Then check conflicts excluding the event being modified
+                    if existing_events:
+                        # Mark the event as being modified to exclude it from conflict checks
+                        event['is_being_modified'] = True
+                        
+                        conflicts = self._check_time_conflict(event)
+                        if conflicts and handle_conflicts == 'error':
+                            conflict_details = [f"'{c['title']}' ({c['time_range']})" for c in conflicts]
+                            raise ValueError(f"Cannot modify event '{event['title']}' due to time conflict with: {', '.join(conflict_details)}")
                     
                     self._modify_event(event)
                     summary['modified'] += 1
@@ -382,10 +403,8 @@ class TimetableProcessor:
         conflicts = []
         
         for db_event in date_events:
-            # Skip if it's the same event (for updates)
-            if (db_event.get('id') and 
-                event.get('id') and 
-                str(db_event['id']) == str(event['id'])):
+            # Skip if it's the same event being modified
+            if event['action'] == '更改' and db_event.get('title') == event.get('title'):
                 continue
                 
             try:
@@ -746,3 +765,4 @@ class TimetableProcessor:
                     events = [row for row in reader if row['date'] == date]
             
             return sorted(events, key=lambda x: x['time_range'])
+
