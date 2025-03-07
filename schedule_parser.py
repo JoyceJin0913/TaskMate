@@ -972,3 +972,97 @@ class TimetableProcessor:
             output.append("\n".join(event_lines))
         
         return "\n\n".join(output)
+
+    def delete_past_events(self, cutoff_time=None):
+        """
+        删除所有在指定时间之前结束的事件。
+
+        Args:
+            cutoff_time (str, optional): 截止时间，格式为 'YYYY-MM-DD HH:MM'。
+                                       如果未指定，则使用当前时间。
+
+        Returns:
+            dict: 包含删除操作结果的字典：
+                - deleted_count: 删除的事件数量
+                - deleted_events: 被删除事件的列表
+        """
+        if cutoff_time is None:
+            cutoff_time = datetime.now().strftime("%Y-%m-%d %H:%M")
+
+        try:
+            cutoff_datetime = datetime.strptime(cutoff_time, "%Y-%m-%d %H:%M")
+        except ValueError:
+            raise ValueError("无效的时间格式。请使用 'YYYY-MM-DD HH:MM' 格式")
+
+        deleted_events = []
+
+        if self.database_type == "sqlite":
+            conn = sqlite3.connect(self.db_path)
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+
+            # 首先获取所有可能需要删除的事件
+            cursor.execute('SELECT * FROM timetable')
+            all_events = [dict(row) for row in cursor.fetchall()]
+
+            # 找出需要删除的事件
+            for event in all_events:
+                event_date = event['date']
+                time_range = event['time_range']
+
+                try:
+                    # 解析事件的结束时间
+                    end_time = time_range.split('-')[1].strip()
+                    event_end_datetime = datetime.strptime(f"{event_date} {end_time}", "%Y-%m-%d %H:%M")
+
+                    if event_end_datetime < cutoff_datetime:
+                        deleted_events.append(event)
+                except (ValueError, IndexError):
+                    continue  # 跳过无效的时间格式
+
+            # 删除符合条件的事件
+            if deleted_events:
+                event_ids = [str(event['id']) for event in deleted_events]
+                cursor.execute(f'''
+                DELETE FROM timetable
+                WHERE id IN ({",".join(event_ids)})
+                ''')
+                conn.commit()
+
+            conn.close()
+
+        elif self.database_type == "csv":
+            if not os.path.exists(self.csv_path):
+                return {'deleted_count': 0, 'deleted_events': []}
+
+            # 读取所有行
+            rows = []
+            with open(self.csv_path, 'r', newline='', encoding='utf-8') as file:
+                reader = csv.DictReader(file)
+                header = reader.fieldnames
+                for row in reader:
+                    event_date = row['date']
+                    time_range = row['time_range']
+
+                    try:
+                        # 解析事件的结束时间
+                        end_time = time_range.split('-')[1].strip()
+                        event_end_datetime = datetime.strptime(f"{event_date} {end_time}", "%Y-%m-%d %H:%M")
+
+                        if event_end_datetime < cutoff_datetime:
+                            deleted_events.append(row)
+                        else:
+                            rows.append(row)
+                    except (ValueError, IndexError):
+                        rows.append(row)  # 保留无效时间格式的事件
+
+            # 写回剩余的行
+            with open(self.csv_path, 'w', newline='', encoding='utf-8') as file:
+                writer = csv.DictWriter(file, fieldnames=header)
+                writer.writeheader()
+                writer.writerows(rows)
+
+        return {
+            'deleted_count': len(deleted_events),
+            'deleted_events': deleted_events
+        }

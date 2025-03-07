@@ -2,26 +2,37 @@ import os
 import openai
 import datetime
 
-# Set up the OpenAI API key
-# Option 1: Set API key directly in the code (quick but not secure for production)
-#openai.api_key = "your-api-key-here"
-
-# Option 2: Use environment variable (more secure)
-api_key = os.environ.get("DEEPSEEK_API_KEY")
-
-def query_deepseek(prompt, schedule, model="deepseek-chat"):
+def get_api_config(model: str):
     """
-    Send a query to the DeepSeek API and return the response.
+    根据模型名称返回相应的API配置
     
     Args:
-        prompt (str): The text prompt to send to the API
-        model (str): The model to use
+        model (str): 模型名称
         
     Returns:
-        str: The model's response text
+        tuple: (api_key, base_url)
+    """
+    if model.startswith("deepseek"):
+        return os.environ.get("DEEPSEEK_API_KEY"), "https://api.deepseek.com"
+    else:  # OpenAI models
+        return os.environ.get("OPENAI_API_KEY"), None
+
+def query_api(prompt, schedule, model="gpt-4-mini"):
+    """
+    向API发送查询并返回响应
+    
+    Args:
+        prompt (str): 发送给API的文本提示
+        schedule (str): 当前时间表
+        model (str): 使用的模型名称
+        
+    Returns:
+        str: 模型的响应文本
     """
     try:
-        client = openai.OpenAI(api_key=api_key, base_url="https://api.deepseek.com")
+        api_key, base_url = get_api_config(model)
+        client = openai.OpenAI(api_key=api_key, base_url=base_url) if base_url else openai.OpenAI(api_key=api_key)
+        
         current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
         system_prompt = """您是一名专业的时间规划师，精通GTD工作法和敏捷项目管理。请根据用户提供的待办事项和现有时间表，完成以下任务："""
         user_prompt = f"""
@@ -135,7 +146,6 @@ def query_deepseek(prompt, schedule, model="deepseek-chat"):
 
 【输出】
 """
-        #print(prompt)
         response = client.chat.completions.create(
             model=model,
             messages=[
@@ -144,11 +154,10 @@ def query_deepseek(prompt, schedule, model="deepseek-chat"):
             ],
             stream=False,
             max_tokens=1024,
-            temperature=0.2
+            temperature=0.2 if model.startswith("deepseek") else 0.5
         )
 
         return response.choices[0].message.content
     
     except Exception as e:
-        return f"Error querying DeepSeek API: {str(e)}"
-
+        return f"Error querying API: {str(e)}" 
