@@ -2,7 +2,7 @@ import re
 import os
 import csv
 import sqlite3
-from datetime import datetime
+from datetime import datetime, timedelta, date
 
 
 class TimetableProcessor:
@@ -23,6 +23,8 @@ class TimetableProcessor:
         
         if self.database_type == "sqlite":
             self._init_sqlite()
+            # 确保数据库结构是最新的
+            self._check_and_update_table_structure()
         elif self.database_type == "csv":
             self._init_csv()
         else:
@@ -43,12 +45,46 @@ class TimetableProcessor:
             event_type TEXT NOT NULL,
             deadline TEXT,
             importance INTEGER,
+            recurrence_rule TEXT,
             last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
         ''')
         
+        # 检查并添加recurrence_rule列（如果不存在）
+        self._check_and_update_table_structure(conn)
+        
         conn.commit()
         conn.close()
+    
+    def _check_and_update_table_structure(self, conn=None):
+        """
+        检查并更新数据库表结构，确保所有必要的列都存在。
+        
+        Args:
+            conn (sqlite3.Connection, optional): 现有的数据库连接。如果为None，将创建新连接。
+        """
+        if self.database_type != "sqlite":
+            return
+            
+        close_conn = False
+        if conn is None:
+            conn = sqlite3.connect(self.db_path)
+            close_conn = True
+            
+        cursor = conn.cursor()
+        
+        # 获取timetable表的列信息
+        cursor.execute("PRAGMA table_info(timetable)")
+        columns = [column[1] for column in cursor.fetchall()]
+        
+        # 检查recurrence_rule列是否存在，如果不存在则添加
+        if 'recurrence_rule' not in columns:
+            print("Adding recurrence_rule column to timetable")
+            cursor.execute("ALTER TABLE timetable ADD COLUMN recurrence_rule TEXT")
+            conn.commit()
+        
+        if close_conn:
+            conn.close()
     
     def _init_csv(self):
         """Initialize CSV file with headers if it doesn't exist."""
@@ -56,7 +92,7 @@ class TimetableProcessor:
             with open(self.csv_path, 'w', newline='', encoding='utf-8') as file:
                 writer = csv.writer(file)
                 writer.writerow(['id', 'title', 'date', 'time_range', 'event_type', 
-                                'deadline', 'importance', 'last_updated'])
+                                'deadline', 'importance', 'recurrence_rule', 'last_updated'])
     
     def extract_events(self, llm_output):
         """
@@ -85,6 +121,7 @@ class TimetableProcessor:
                 'event_type': groups[3].strip(),
                 'deadline': groups[4].strip() if groups[4] else None,
                 'importance': int(groups[5]) if groups[5] else 0,
+                'recurrence_rule': None,  # 默认为None
                 'action': groups[6].strip()
             }
             events.append(event)
@@ -398,8 +435,8 @@ class TimetableProcessor:
             cursor = conn.cursor()
             
             cursor.execute('''
-            INSERT INTO timetable (title, date, time_range, event_type, deadline, importance, last_updated)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO timetable (title, date, time_range, event_type, deadline, importance, recurrence_rule, last_updated)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             ''', (
                 event['title'], 
                 event['date'], 
@@ -407,6 +444,7 @@ class TimetableProcessor:
                 event['event_type'],
                 event['deadline'],
                 event['importance'],
+                event['recurrence_rule'],
                 current_time
             ))
             
@@ -434,6 +472,7 @@ class TimetableProcessor:
                     event['event_type'],
                     event['deadline'] or '',
                     event['importance'],
+                    event['recurrence_rule'] or '',
                     current_time
                 ])
     
@@ -569,8 +608,8 @@ class TimetableProcessor:
             cursor = conn.cursor()
             
             cursor.execute('''
-            INSERT INTO timetable (title, date, time_range, event_type, deadline, importance, last_updated)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO timetable (title, date, time_range, event_type, deadline, importance, recurrence_rule, last_updated)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             ''', (
                 event['title'], 
                 event['date'], 
@@ -578,6 +617,7 @@ class TimetableProcessor:
                 event['event_type'],
                 event['deadline'],
                 event['importance'],
+                event['recurrence_rule'],
                 current_time
             ))
             
@@ -605,6 +645,7 @@ class TimetableProcessor:
                     event['event_type'],
                     event['deadline'] or '',
                     event['importance'],
+                    event['recurrence_rule'] or '',
                     current_time
                 ])
     
@@ -637,13 +678,14 @@ class TimetableProcessor:
                 # Now we can update all fields
                 cursor.execute('''
                 UPDATE timetable
-                SET time_range = ?, event_type = ?, deadline = ?, importance = ?, last_updated = ?
+                SET time_range = ?, event_type = ?, deadline = ?, importance = ?, recurrence_rule = ?, last_updated = ?
                 WHERE id = ?
                 ''', (
                     event['time_range'],
                     event['event_type'],
                     event['deadline'],
                     event['importance'],
+                    event['recurrence_rule'],
                     current_time,
                     event_id
                 ))
@@ -655,13 +697,14 @@ class TimetableProcessor:
                     if event.get('old_time_range') and db_time_range.strip() == event['old_time_range'].strip():
                         cursor.execute('''
                         UPDATE timetable
-                        SET time_range = ?, event_type = ?, deadline = ?, importance = ?, last_updated = ?
+                        SET time_range = ?, event_type = ?, deadline = ?, importance = ?, recurrence_rule = ?, last_updated = ?
                         WHERE id = ?
                         ''', (
                             event['time_range'],
                             event['event_type'],
                             event['deadline'],
                             event['importance'],
+                            event['recurrence_rule'],
                             current_time,
                             event_id
                         ))
@@ -673,13 +716,14 @@ class TimetableProcessor:
                     event_id = matches[0][0]
                     cursor.execute('''
                     UPDATE timetable
-                    SET time_range = ?, event_type = ?, deadline = ?, importance = ?, last_updated = ?
+                    SET time_range = ?, event_type = ?, deadline = ?, importance = ?, recurrence_rule = ?, last_updated = ?
                     WHERE id = ?
                     ''', (
                         event['time_range'],
                         event['event_type'],
                         event['deadline'],
                         event['importance'],
+                        event['recurrence_rule'],
                         current_time,
                         event_id
                     ))
@@ -703,7 +747,8 @@ class TimetableProcessor:
                     rows[i][4] = event['event_type']
                     rows[i][5] = event['deadline'] or ''
                     rows[i][6] = str(event['importance'])
-                    rows[i][7] = current_time
+                    rows[i][7] = event['recurrence_rule'] or ''
+                    rows[i][8] = current_time
                     found = True
             
             if not found:
@@ -1066,3 +1111,520 @@ class TimetableProcessor:
             'deleted_count': len(deleted_events),
             'deleted_events': deleted_events
         }
+
+    def process_recurring_events(self, llm_output, recurrence_rule, end_date=None, handle_conflicts='error'):
+        """
+        Process events from LLM output and add them as recurring events.
+        
+        Args:
+            llm_output (str): The output text from the LLM
+            recurrence_rule (str): The recurrence rule for the events:
+                - 'daily': Event repeats every day
+                - 'weekly': Event repeats every week on the same day
+                - 'weekdays': Event repeats every weekday (Monday to Friday)
+                - 'monthly': Event repeats every month on the same day
+                - 'yearly': Event repeats every year on the same date
+            end_date (str, optional): The end date for the recurrence in 'YYYY-MM-DD' format.
+                If None, the event will recur indefinitely (or up to one year by default).
+            handle_conflicts (str): How to handle time conflicts:
+                - 'error': Raise an error and don't add the event (default)
+                - 'skip': Skip conflicting events silently
+                - 'force': Add events anyway, ignoring conflicts
+            
+        Returns:
+            dict: Summary of operations performed
+        """
+        events = self.extract_events(llm_output)
+        
+        summary = {
+            'added': 0,
+            'skipped': 0,
+            'errors': [],
+            'warnings': []
+        }
+        
+        # Only process new events for recurrence
+        additions = [event for event in events if event['action'] == '新增']
+        
+        if not additions:
+            summary['warnings'].append("No new events found to set as recurring")
+            return summary
+            
+        # Set a default end date of one year from now if none provided
+        if end_date is None:
+            default_end = (datetime.now() + timedelta(days=365)).strftime('%Y-%m-%d')
+            end_date = default_end
+            summary['warnings'].append(f"No end date provided, defaulting to one year: {default_end}")
+        
+        for event in additions:
+            try:
+                # 直接设置重复规则，不依赖于事件描述中的规则
+                event['recurrence_rule'] = recurrence_rule
+                
+                # Get the initial date of the event
+                start_date = datetime.strptime(event['date'], '%Y-%m-%d').date()
+                end_date_obj = datetime.strptime(end_date, '%Y-%m-%d').date() if end_date else None
+                
+                # Generate all occurrences based on the recurrence rule
+                occurrences = self._generate_occurrences(start_date, recurrence_rule, end_date_obj)
+                
+                # Add each occurrence as a separate event
+                for occurrence_date in occurrences:
+                    # Create a copy of the event with the new date
+                    occurrence_event = event.copy()
+                    occurrence_event['date'] = occurrence_date.strftime('%Y-%m-%d')
+                    
+                    try:
+                        # Try to add the event, respecting conflict handling
+                        if handle_conflicts == 'force':
+                            self._add_event_no_check(occurrence_event)
+                            summary['added'] += 1
+                        else:
+                            # Check for conflicts
+                            conflicts = self._check_time_conflict(occurrence_event)
+                            if conflicts and handle_conflicts == 'skip':
+                                summary['skipped'] += 1
+                                continue
+                            elif conflicts:
+                                conflict_details = [f"'{c['title']}' ({c['time_range']})" for c in conflicts]
+                                raise ValueError(f"Time conflict on {occurrence_event['date']} with existing events: {', '.join(conflict_details)}")
+                            
+                            # No conflicts or force mode, add the event
+                            self._add_event_no_check(occurrence_event)
+                            summary['added'] += 1
+                    except ValueError as e:
+                        if handle_conflicts == 'error':
+                            # Re-raise the error to stop processing
+                            raise
+                        summary['errors'].append(str(e))
+                        summary['skipped'] += 1
+                
+            except Exception as e:
+                summary['errors'].append(f"Error processing recurring event '{event['title']}': {str(e)}")
+                
+        return summary
+        
+    def _generate_occurrences(self, start_date, recurrence_rule, end_date=None):
+        """
+        Generate all occurrence dates for a recurring event.
+        
+        Args:
+            start_date (date): The start date of the recurrence
+            recurrence_rule (str): The recurrence rule ('daily', 'weekly', etc.)
+            end_date (date, optional): The end date of the recurrence
+            
+        Returns:
+            list: List of date objects for all occurrences
+        """
+        occurrences = [start_date]
+        current_date = start_date
+        
+        # Default end date is one year from start if none provided
+        if end_date is None:
+            end_date = start_date.replace(year=start_date.year + 1)
+        
+        # Generate dates based on recurrence rule
+        while current_date < end_date:
+            if recurrence_rule == 'daily':
+                current_date = current_date + timedelta(days=1)
+            elif recurrence_rule == 'weekly':
+                current_date = current_date + timedelta(days=7)
+            elif recurrence_rule == 'weekdays':
+                current_date = current_date + timedelta(days=1)
+                # Skip weekends
+                while current_date.weekday() >= 5:  # 5=Saturday, 6=Sunday
+                    current_date = current_date + timedelta(days=1)
+            elif recurrence_rule == 'monthly':
+                # Move to the next month, same day
+                month = current_date.month + 1
+                year = current_date.year
+                if month > 12:
+                    month = 1
+                    year += 1
+                
+                # Handle month length differences
+                day = min(current_date.day, self._get_days_in_month(year, month))
+                current_date = date(year, month, day)
+            elif recurrence_rule == 'yearly':
+                # Move to the next year, same month and day
+                try:
+                    current_date = current_date.replace(year=current_date.year + 1)
+                except ValueError:
+                    # Handle February 29 in leap years
+                    if current_date.month == 2 and current_date.day == 29:
+                        current_date = date(current_date.year + 1, 3, 1)
+            else:
+                raise ValueError(f"Unsupported recurrence rule: {recurrence_rule}")
+                
+            if current_date <= end_date:
+                occurrences.append(current_date)
+                
+        return occurrences
+        
+    def _get_days_in_month(self, year, month):
+        """Return the number of days in a given month."""
+        if month == 2:  # February
+            if (year % 4 == 0 and year % 100 != 0) or (year % 400 == 0):  # Leap year
+                return 29
+            return 28
+        elif month in [4, 6, 9, 11]:  # April, June, September, November
+            return 30
+        else:
+            return 31
+
+    def apply_recurrence_to_event(self, event_id, recurrence_rule, end_date=None, handle_conflicts='error'):
+        """
+        Apply a recurrence rule to an existing event.
+        
+        Args:
+            event_id (int): The ID of the event to apply recurrence to
+            recurrence_rule (str): The recurrence rule for the events:
+                - 'daily': Event repeats every day
+                - 'weekly': Event repeats every week on the same day
+                - 'weekdays': Event repeats every weekday (Monday to Friday)
+                - 'monthly': Event repeats every month on the same day
+                - 'yearly': Event repeats every year on the same date
+            end_date (str, optional): The end date for the recurrence in 'YYYY-MM-DD' format.
+                If None, the event will recur indefinitely (or up to one year by default).
+            handle_conflicts (str): How to handle time conflicts:
+                - 'error': Raise an error and don't add the event (default)
+                - 'skip': Skip conflicting events silently
+                - 'force': Add events anyway, ignoring conflicts
+                
+        Returns:
+            dict: Summary of operations performed
+        """
+        summary = {
+            'added': 0,
+            'skipped': 0,
+            'errors': [],
+            'warnings': []
+        }
+        
+        # 确保数据库结构是最新的
+        if self.database_type == "sqlite":
+            self._check_and_update_table_structure()
+        
+        # 获取原始事件
+        original_event = None
+        
+        if self.database_type == "sqlite":
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            
+            cursor.execute('''
+            SELECT title, date, time_range, event_type, deadline, importance
+            FROM timetable WHERE id = ?
+            ''', (event_id,))
+            
+            result = cursor.fetchone()
+            conn.close()
+            
+            if not result:
+                raise ValueError(f"Event with ID {event_id} not found")
+                
+            original_event = {
+                'title': result[0],
+                'date': result[1],
+                'time_range': result[2],
+                'event_type': result[3],
+                'deadline': result[4],
+                'importance': result[5],
+                'recurrence_rule': recurrence_rule,
+                'action': '新增'  # 标记为新增，因为我们要创建新的重复事件
+            }
+            
+        elif self.database_type == "csv":
+            if not os.path.exists(self.csv_path):
+                raise ValueError("CSV file does not exist")
+                
+            with open(self.csv_path, 'r', newline='', encoding='utf-8') as file:
+                reader = csv.reader(file)
+                header = next(reader)
+                
+                # 检查CSV文件是否有recurrence_rule列
+                if len(header) <= 7 or header[7] != 'recurrence_rule':
+                    summary['warnings'].append("recurrence_rule column does not exist in the CSV file, it will be added")
+                    # 我们将在后面处理这个问题
+                
+                for row in reader:
+                    if int(row[0]) == event_id:
+                        original_event = {
+                            'title': row[1],
+                            'date': row[2],
+                            'time_range': row[3],
+                            'event_type': row[4],
+                            'deadline': row[5] if row[5] else None,
+                            'importance': int(row[6]) if row[6] else 0,
+                            'recurrence_rule': recurrence_rule,
+                            'action': '新增'  # 标记为新增，因为我们要创建新的重复事件
+                        }
+                        break
+                        
+            if not original_event:
+                raise ValueError(f"Event with ID {event_id} not found")
+        
+        # 设置默认结束日期为一年后
+        if end_date is None:
+            default_end = (datetime.now() + timedelta(days=365)).strftime('%Y-%m-%d')
+            end_date = default_end
+            summary['warnings'].append(f"No end date provided, defaulting to one year: {default_end}")
+        
+        try:
+            # 获取初始日期
+            start_date = datetime.strptime(original_event['date'], '%Y-%m-%d').date()
+            end_date_obj = datetime.strptime(end_date, '%Y-%m-%d').date() if end_date else None
+            
+            # 生成所有重复日期
+            occurrences = self._generate_occurrences(start_date, recurrence_rule, end_date_obj)
+            
+            # 跳过第一个日期，因为它已经存在
+            occurrences = occurrences[1:] if len(occurrences) > 1 else []
+            
+            # 为每个重复日期添加事件
+            for occurrence_date in occurrences:
+                # 创建事件副本并更新日期
+                occurrence_event = original_event.copy()
+                occurrence_event['date'] = occurrence_date.strftime('%Y-%m-%d')
+                
+                try:
+                    # 根据冲突处理策略添加事件
+                    if handle_conflicts == 'force':
+                        self._add_event_no_check(occurrence_event)
+                        summary['added'] += 1
+                    else:
+                        # 检查冲突
+                        conflicts = self._check_time_conflict(occurrence_event)
+                        if conflicts and handle_conflicts == 'skip':
+                            summary['skipped'] += 1
+                            continue
+                        elif conflicts:
+                            conflict_details = [f"'{c['title']}' ({c['time_range']})" for c in conflicts]
+                            raise ValueError(f"Time conflict on {occurrence_event['date']} with existing events: {', '.join(conflict_details)}")
+                        
+                        # 无冲突或强制模式，添加事件
+                        self._add_event_no_check(occurrence_event)
+                        summary['added'] += 1
+                except ValueError as e:
+                    if handle_conflicts == 'error':
+                        # 重新抛出错误以停止处理
+                        raise
+                    summary['errors'].append(str(e))
+                    summary['skipped'] += 1
+            
+            # 更新原始事件的重复规则
+            if self.database_type == "sqlite":
+                try:
+                    conn = sqlite3.connect(self.db_path)
+                    cursor = conn.cursor()
+                    
+                    # 检查recurrence_rule列是否存在
+                    cursor.execute("PRAGMA table_info(timetable)")
+                    columns = [column[1] for column in cursor.fetchall()]
+                    
+                    if 'recurrence_rule' not in columns:
+                        # 添加recurrence_rule列
+                        cursor.execute("ALTER TABLE timetable ADD COLUMN recurrence_rule TEXT")
+                        conn.commit()
+                        summary['warnings'].append("Added recurrence_rule column to the database")
+                    
+                    cursor.execute('''
+                    UPDATE timetable SET recurrence_rule = ? WHERE id = ?
+                    ''', (recurrence_rule, event_id))
+                    
+                    conn.commit()
+                    conn.close()
+                except sqlite3.OperationalError as e:
+                    summary['errors'].append(f"Error updating recurrence rule: {e}")
+                
+            elif self.database_type == "csv":
+                rows = []
+                with open(self.csv_path, 'r', newline='', encoding='utf-8') as file:
+                    reader = csv.reader(file)
+                    rows = list(reader)
+                
+                # 检查是否需要添加recurrence_rule列
+                header = rows[0]
+                if len(header) <= 7 or header[7] != 'recurrence_rule':
+                    # 添加recurrence_rule列到标题
+                    if len(header) <= 7:
+                        header.append('recurrence_rule')
+                    else:
+                        header[7] = 'recurrence_rule'
+                    
+                    # 为所有行添加空的recurrence_rule值
+                    for i in range(1, len(rows)):
+                        if len(rows[i]) <= 7:
+                            rows[i].append('')
+                    
+                    summary['warnings'].append("Added recurrence_rule column to the CSV file")
+                
+                # 更新事件的recurrence_rule
+                for i, row in enumerate(rows):
+                    if i > 0 and int(row[0]) == event_id:
+                        if len(row) <= 7:
+                            row.append(recurrence_rule)
+                        else:
+                            row[7] = recurrence_rule
+                        break
+                
+                with open(self.csv_path, 'w', newline='', encoding='utf-8') as file:
+                    writer = csv.writer(file)
+                    writer.writerows(rows)
+            
+        except Exception as e:
+            summary['errors'].append(f"Error applying recurrence to event ID {event_id}: {str(e)}")
+        
+        return summary
+
+    def get_recurring_events(self):
+        """
+        Get all events that have a recurrence rule set.
+        
+        Returns:
+            list: List of events with recurrence rules
+        """
+        recurring_events = []
+        
+        if self.database_type == "sqlite":
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            
+            # 首先检查recurrence_rule列是否存在
+            cursor.execute("PRAGMA table_info(timetable)")
+            columns = [column[1] for column in cursor.fetchall()]
+            
+            if 'recurrence_rule' not in columns:
+                print("Warning: recurrence_rule column does not exist in the database")
+                conn.close()
+                return []
+            
+            try:
+                cursor.execute('''
+                SELECT id, title, date, time_range, event_type, deadline, importance, recurrence_rule
+                FROM timetable
+                WHERE recurrence_rule IS NOT NULL AND recurrence_rule != ''
+                ORDER BY date
+                ''')
+                
+                for row in cursor.fetchall():
+                    event = {
+                        'id': row[0],
+                        'title': row[1],
+                        'date': row[2],
+                        'time_range': row[3],
+                        'event_type': row[4],
+                        'deadline': row[5],
+                        'importance': row[6],
+                        'recurrence_rule': row[7]
+                    }
+                    recurring_events.append(event)
+            except sqlite3.OperationalError as e:
+                print(f"Error querying recurring events: {e}")
+                # 尝试更新表结构
+                self._check_and_update_table_structure(conn)
+                print("Database structure has been updated. Please try again.")
+                
+            conn.close()
+            
+        elif self.database_type == "csv":
+            if not os.path.exists(self.csv_path):
+                return []
+                
+            with open(self.csv_path, 'r', newline='', encoding='utf-8') as file:
+                reader = csv.reader(file)
+                header = next(reader)
+                
+                # 检查CSV文件是否有recurrence_rule列
+                if len(header) <= 7 or header[7] != 'recurrence_rule':
+                    print("Warning: recurrence_rule column does not exist in the CSV file")
+                    return []
+                
+                for row in reader:
+                    if len(row) > 7 and row[7]:  # 检查recurrence_rule是否存在且非空
+                        event = {
+                            'id': int(row[0]),
+                            'title': row[1],
+                            'date': row[2],
+                            'time_range': row[3],
+                            'event_type': row[4],
+                            'deadline': row[5] if row[5] else None,
+                            'importance': int(row[6]) if row[6] else 0,
+                            'recurrence_rule': row[7]
+                        }
+                        recurring_events.append(event)
+        
+        return recurring_events
+        
+    def remove_recurrence(self, event_id):
+        """
+        Remove the recurrence rule from an event.
+        
+        Args:
+            event_id (int): The ID of the event to remove recurrence from
+            
+        Returns:
+            bool: True if successful, False otherwise
+        """
+        if self.database_type == "sqlite":
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            
+            # 首先检查recurrence_rule列是否存在
+            cursor.execute("PRAGMA table_info(timetable)")
+            columns = [column[1] for column in cursor.fetchall()]
+            
+            if 'recurrence_rule' not in columns:
+                print("Warning: recurrence_rule column does not exist in the database")
+                conn.close()
+                return False
+            
+            try:
+                cursor.execute('''
+                UPDATE timetable SET recurrence_rule = NULL
+                WHERE id = ?
+                ''', (event_id,))
+                
+                affected = cursor.rowcount
+                conn.commit()
+                conn.close()
+                
+                return affected > 0
+            except sqlite3.OperationalError as e:
+                print(f"Error removing recurrence: {e}")
+                # 尝试更新表结构
+                self._check_and_update_table_structure(conn)
+                print("Database structure has been updated. Please try again.")
+                conn.close()
+                return False
+            
+        elif self.database_type == "csv":
+            if not os.path.exists(self.csv_path):
+                return False
+                
+            rows = []
+            found = False
+            
+            with open(self.csv_path, 'r', newline='', encoding='utf-8') as file:
+                reader = csv.reader(file)
+                rows = list(reader)
+                
+                # 检查CSV文件是否有recurrence_rule列
+                header = rows[0]
+                if len(header) <= 7 or header[7] != 'recurrence_rule':
+                    print("Warning: recurrence_rule column does not exist in the CSV file")
+                    return False
+                
+            for i, row in enumerate(rows):
+                if i > 0 and int(row[0]) == event_id:
+                    if len(row) > 7:  # 确保行有足够的列
+                        rows[i][7] = ''  # 清空recurrence_rule
+                        found = True
+                    break
+                    
+            if found:
+                with open(self.csv_path, 'w', newline='', encoding='utf-8') as file:
+                    writer = csv.writer(file)
+                    writer.writerows(rows)
+                    
+            return found
