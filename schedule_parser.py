@@ -423,7 +423,7 @@ class TimetableProcessor:
             
             return {
                 'removed_duplicates': removed_count,
-                'unique_events_kept': len(unique_rows)
+                'unique_events_kept': len(self.get_all_events())
             }
             
     def _add_event_no_check(self, event):
@@ -806,14 +806,51 @@ class TimetableProcessor:
                 writer = csv.writer(file)
                 writer.writerows(new_rows)
     
-    def get_all_events(self):
-        """Retrieve all events from the database."""
+    def get_all_events(self, date_from=None, date_to=None, limit=None, offset=0):
+        """
+        Retrieve events from the database with optional filtering and pagination.
+        
+        Args:
+            date_from (str, optional): Start date in format 'YYYY-MM-DD'
+            date_to (str, optional): End date in format 'YYYY-MM-DD'
+            limit (int, optional): Maximum number of events to return
+            offset (int, optional): Number of events to skip
+            
+        Returns:
+            list: List of event dictionaries
+        """
         if self.database_type == "sqlite":
             conn = sqlite3.connect(self.db_path)
             conn.row_factory = sqlite3.Row
             cursor = conn.cursor()
             
-            cursor.execute('SELECT * FROM timetable ORDER BY date, time_range')
+            query = 'SELECT * FROM timetable'
+            params = []
+            
+            # 添加日期范围过滤
+            conditions = []
+            if date_from:
+                conditions.append('date >= ?')
+                params.append(date_from)
+            if date_to:
+                conditions.append('date <= ?')
+                params.append(date_to)
+            
+            if conditions:
+                query += ' WHERE ' + ' AND '.join(conditions)
+            
+            query += ' ORDER BY date, time_range'
+            
+            # 添加分页
+            if limit is not None:
+                query += ' LIMIT ?'
+                params.append(limit)
+                
+                if offset:
+                    query += ' OFFSET ?'
+                    params.append(offset)
+            
+            cursor.execute(query, params)
             events = [dict(row) for row in cursor.fetchall()]
             
             conn.close()
@@ -825,23 +862,69 @@ class TimetableProcessor:
             if os.path.exists(self.csv_path):
                 with open(self.csv_path, 'r', newline='', encoding='utf-8') as file:
                     reader = csv.DictReader(file)
-                    events = list(reader)
+                    
+                    # 读取所有事件并应用过滤
+                    filtered_events = []
+                    for event in reader:
+                        # 应用日期范围过滤
+                        if date_from and event['date'] < date_from:
+                            continue
+                        if date_to and event['date'] > date_to:
+                            continue
+                        filtered_events.append(event)
+                    
+                    # 排序
+                    filtered_events.sort(key=lambda x: (x['date'], x['time_range']))
+                    
+                    # 应用分页
+                    if limit is not None:
+                        start_idx = offset
+                        end_idx = offset + limit
+                        events = filtered_events[start_idx:end_idx]
+                    else:
+                        events = filtered_events
             
             return events
-            
-    def format_events_as_llm_output(self, events=None, include_header=False):
+    
+    def get_events_iterator(self, date_from=None, date_to=None, batch_size=100):
         """
-        Format events in the same structure as LLM output but without the '变动' field.
+        返回一个迭代器，按批次获取事件，避免一次性加载所有事件到内存中。
         
         Args:
-            events (list, optional): List of event dictionaries. If None, retrieves all events from database.
-            include_header (bool): Whether to include the '日程建议：' header.
+            date_from (str, optional): 开始日期，格式为 'YYYY-MM-DD'
+            date_to (str, optional): 结束日期，格式为 'YYYY-MM-DD'
+            batch_size (int): 每批次返回的事件数量
             
         Returns:
-            str: Formatted string in LLM output style
+            iterator: 事件批次的迭代器
+        """
+        offset = 0
+        while True:
+            batch = self.get_all_events(date_from, date_to, batch_size, offset)
+            if not batch:
+                break
+            yield batch
+            offset += batch_size
+            if len(batch) < batch_size:
+                break
+    
+    def format_events_as_llm_output(self, events=None, include_header=False, date_from=None, date_to=None, limit=None, offset=0):
+        """
+        Format events as a string in the format expected by the LLM.
+        
+        Args:
+            events (list, optional): List of events to format. If None, events are retrieved based on filters.
+            include_header (bool): Whether to include the header in the output
+            date_from (str, optional): Start date in format 'YYYY-MM-DD'
+            date_to (str, optional): End date in format 'YYYY-MM-DD'
+            limit (int, optional): Maximum number of events to return
+            offset (int, optional): Number of events to skip
+            
+        Returns:
+            str: Formatted events string
         """
         if events is None:
-            events = self.get_all_events()
+            events = self.get_all_events(date_from=date_from, date_to=date_to, limit=limit, offset=offset)
         
         # Sort events by date and time
         events = sorted(events, key=lambda x: (str(x.get('date', '')), str(x.get('time_range', ''))))
@@ -881,12 +964,14 @@ class TimetableProcessor:
         # Join all events with double newlines between them
         return "\n\n".join(output)
         
-    def get_events_for_date(self, date):
+    def get_events_for_date(self, date, limit=None, offset=0):
         """
         Retrieve all events for a specific date.
         
         Args:
             date (str): Date in format 'YYYY-MM-DD'
+            limit (int, optional): Maximum number of events to return
+            offset (int, optional): Number of events to skip
             
         Returns:
             list: List of event dictionaries for the specified date
@@ -896,7 +981,19 @@ class TimetableProcessor:
             conn.row_factory = sqlite3.Row
             cursor = conn.cursor()
             
-            cursor.execute('SELECT * FROM timetable WHERE date = ? ORDER BY time_range', (date,))
+            query = 'SELECT * FROM timetable WHERE date = ? ORDER BY time_range'
+            params = [date]
+            
+            # 添加分页
+            if limit is not None:
+                query += ' LIMIT ?'
+                params.append(limit)
+                
+                if offset:
+                    query += ' OFFSET ?'
+                    params.append(offset)
+            
+            cursor.execute(query, params)
             events = [dict(row) for row in cursor.fetchall()]
             
             conn.close()
@@ -910,16 +1007,30 @@ class TimetableProcessor:
                     reader = csv.DictReader(file)
                     events = [row for row in reader if row['date'] == date]
             
-            return sorted(events, key=lambda x: x['time_range'])
-
-    def format_events_with_changes(self, old_events, new_events, include_header=False):
+            events = sorted(events, key=lambda x: x['time_range'])
+            
+            # 应用分页
+            if limit is not None:
+                start_idx = offset
+                end_idx = offset + limit
+                events = events[start_idx:end_idx]
+                
+            return events
+    
+    def format_events_with_changes(self, old_events=None, new_events=None, include_header=False, date_from=None, date_to=None, limit=None, offset=0):
         """
         Format events with visual indicators showing changes between old and new states.
         
         Args:
-            old_events (list): List of event dictionaries representing the old state
-            new_events (list): List of event dictionaries representing the new state
+            old_events (list, optional): List of event dictionaries representing the old state. 
+                                        If None, will be retrieved based on filters.
+            new_events (list, optional): List of event dictionaries representing the new state.
+                                        If None, will be retrieved based on filters.
             include_header (bool): Whether to include the header
+            date_from (str, optional): Start date in format 'YYYY-MM-DD'
+            date_to (str, optional): End date in format 'YYYY-MM-DD'
+            limit (int, optional): Maximum number of events to return
+            offset (int, optional): Number of events to skip
             
         Returns:
             str: Formatted string showing changes with visual indicators:
@@ -928,6 +1039,12 @@ class TimetableProcessor:
                 [*] for modified events
                 [ ] for unchanged events
         """
+        # 如果未提供事件列表，则根据过滤条件获取
+        if old_events is None:
+            old_events = self.get_all_events(date_from=date_from, date_to=date_to, limit=limit, offset=offset)
+        if new_events is None:
+            new_events = self.get_all_events(date_from=date_from, date_to=date_to, limit=limit, offset=offset)
+            
         # Create dictionaries for easy lookup
         old_events_dict = {(e.get('title', ''), e.get('date', '')): e for e in old_events}
         new_events_dict = {(e.get('title', ''), e.get('date', '')): e for e in new_events}
