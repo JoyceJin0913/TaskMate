@@ -1,0 +1,344 @@
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Microsoft YaHei', Arial, sans-serif;
+    line-height: 1.6;
+    color: #333;
+    background-color: #f5f5f5;
+}
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #ddd;
+}
+
+.date-controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.navigation-controls {
+    display: none;
+    align-items: center;
+    gap: 10px;
+}
+
+.navigation-controls.active {
+    display: flex;
+}
+
+button {
+    padding: 8px 12px;
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+button:hover {
+    background-color: #45a049;
+}
+
+.view-controls {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.view-controls button {
+    background-color: #ddd;
+    color: #333;
+}
+
+.view-controls button.active {
+    background-color: #4CAF50;
+    color: white;
+}
+
+/* 视图容器 */
+#calendar-container {
+    position: relative;
+    height: 700px; /* 固定高度 */
+    width: 100%;
+    overflow-y: auto; /* 添加垂直滚动条 */
+    overflow-x: hidden; /* 隐藏水平滚动条 */
+    scroll-behavior: smooth; /* 平滑滚动 */
+}
+
+/* 视图样式 */
+.view {
+    display: none;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: auto; /* 改为auto，根据内容自动调整高度 */
+}
+
+.view.active {
+    display: block;
+}
+
+/* 月视图样式 */
+#month-grid {
+    display: none;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 5px;
+}
+
+#month-grid.active {
+    display: grid;
+}
+
+.day-cell {
+    min-height: 100px;
+    background-color: white;
+    border-radius: 4px;
+    padding: 5px;
+    border: 1px solid #ddd;
+}
+
+.day-header {
+    text-align: center;
+    font-weight: bold;
+    padding: 5px;
+    background-color: #f0f0f0;
+    border-radius: 4px 4px 0 0;
+}
+
+.day-number {
+    font-size: 14px;
+    font-weight: bold;
+    margin-bottom: 5px;
+}
+
+.event-item {
+    margin-bottom: 5px;
+    padding: 5px;
+    border-radius: 3px;
+    font-size: 12px;
+    cursor: pointer;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* 时间轴样式 */
+.time-column {
+    background-color: #f9f9f9;
+    border-right: 1px solid #ddd;
+    min-height: 990px; /* 与日期列保持一致 */
+    position: sticky; /* 使时间列固定 */
+    left: 0; /* 固定在左侧 */
+    z-index: 50; /* 确保在最上层 */
+}
+
+.time-cell {
+    text-align: right;
+    padding: 5px 10px 5px 5px;
+    font-size: 12px;
+    height: 40px; /* 固定高度，与事件位置计算匹配 */
+    line-height: 30px; /* 垂直居中 */
+    border-bottom: 1px dashed #eee; /* 添加分隔线 */
+    color: #666;
+}
+
+.week-day-column, .day-column {
+    background-color: white;
+    border: 1px solid #ddd;
+    min-height: 990px; /* 24小时 * 40px + 30px头部 = 990px */
+    position: relative;
+    height: 100%; /* 确保列高度填满容器 */
+}
+
+.week-day-header {
+    text-align: center;
+    padding: 5px;
+    background-color: #f0f0f0;
+    font-weight: bold;
+    height: 30px; /* 固定高度，与事件位置计算匹配 */
+    line-height: 20px; /* 垂直居中 */
+    border-bottom: 1px solid #ddd;
+    position: sticky; /* 使头部固定 */
+    top: 0; /* 固定在顶部 */
+    z-index: 40; /* 确保在事件上层 */
+}
+
+/* 小时线样式 */
+.hour-line {
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background-color: #eee;
+    z-index: 1;
+}
+
+/* 当前时间指示线 */
+.current-time-indicator {
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background-color: #f44336;
+    z-index: 20;
+    box-shadow: 0 0 5px rgba(244, 67, 54, 0.5); /* 添加阴影效果 */
+}
+
+/* 周视图和日视图中的事件样式 */
+.week-day-column .event-item,
+.day-column .event-item {
+    position: absolute;
+    left: 5px;
+    right: 5px;
+    padding: 5px;
+    z-index: 10;
+    min-height: 25px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    overflow: hidden;
+    border-left: 3px solid;
+}
+
+.event-item.type-meeting {
+    background-color: #bbdefb;
+    border-left-color: #2196F3;
+}
+
+.event-item.type-task {
+    background-color: #c8e6c9;
+    border-left-color: #4CAF50;
+}
+
+.event-item.type-deadline {
+    background-color: #ffcdd2;
+    border-left-color: #F44336;
+}
+
+.event-item.type-other {
+    background-color: #e1bee7;
+    border-left-color: #9C27B0;
+}
+
+/* 周视图样式 */
+#week-grid {
+    display: none;
+    grid-template-columns: 60px repeat(7, 1fr);
+    gap: 5px;
+    height: auto; /* 根据内容自动调整高度 */
+    min-height: 1000px; /* 确保有足够的高度 */
+    position: relative; /* 确保定位正确 */
+}
+
+#week-grid.active {
+    display: grid;
+}
+
+/* 日视图样式 */
+#day-grid {
+    display: none;
+    grid-template-columns: 60px 1fr;
+    gap: 5px;
+    height: auto; /* 根据内容自动调整高度 */
+    min-height: 1000px; /* 确保有足够的高度 */
+    position: relative; /* 确保定位正确 */
+}
+
+#day-grid.active {
+    display: grid;
+}
+
+/* 列表视图样式 */
+#list-grid {
+    display: none;
+    background-color: white;
+    border-radius: 4px;
+    padding: 10px;
+    border: 1px solid #ddd;
+}
+
+#list-grid.active {
+    display: block;
+}
+
+.list-date-header {
+    font-weight: bold;
+    margin: 10px 0;
+    padding-bottom: 5px;
+    border-bottom: 1px solid #ddd;
+}
+
+.list-event-item {
+    padding: 10px;
+    margin-bottom: 10px;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+/* 事件详情样式 */
+#event-details {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 400px;
+    background-color: white;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    z-index: 1000;
+    padding: 20px;
+}
+
+.event-details-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #ddd;
+}
+
+#event-details-content {
+    line-height: 1.8;
+}
+
+.hidden {
+    display: none;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+    #month-grid {
+        grid-template-columns: repeat(7, 1fr);
+    }
+    
+    .day-cell {
+        min-height: 60px;
+    }
+    
+    #week-grid {
+        grid-template-columns: 40px repeat(7, 1fr);
+    }
+    
+    #event-details {
+        width: 90%;
+    }
+}
+    

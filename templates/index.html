@@ -1,0 +1,72 @@
+
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>日程表可视化</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>日程表可视化</h1>
+            <div class="date-controls">
+                <!-- 月视图导航 -->
+                <div id="month-navigation" class="navigation-controls active">
+                    <button id="prev-month">上个月</button>
+                    <span id="current-month"></span>
+                    <button id="next-month">下个月</button>
+                </div>
+                
+                <!-- 周视图导航 -->
+                <div id="week-navigation" class="navigation-controls">
+                    <button id="prev-week">上一周</button>
+                    <span id="current-week"></span>
+                    <button id="next-week">下一周</button>
+                </div>
+                
+                <!-- 日视图导航 -->
+                <div id="day-navigation" class="navigation-controls">
+                    <button id="prev-day">前一天</button>
+                    <span id="current-day"></span>
+                    <button id="next-day">后一天</button>
+                </div>
+            </div>
+        </header>
+        
+        <div class="view-controls">
+            <button id="month-view" class="active">月视图</button>
+            <button id="week-view">周视图</button>
+            <button id="day-view">日视图</button>
+            <button id="list-view">列表视图</button>
+        </div>
+        
+        <!-- 视图容器 -->
+        <div id="calendar-container">
+            <!-- 月视图 -->
+            <div id="month-grid" class="view active"></div>
+            
+            <!-- 周视图 -->
+            <div id="week-grid" class="view"></div>
+            
+            <!-- 日视图 -->
+            <div id="day-grid" class="view"></div>
+            
+            <!-- 列表视图 -->
+            <div id="list-grid" class="view"></div>
+        </div>
+        
+        <div id="event-details" class="hidden">
+            <div class="event-details-header">
+                <h2>事件详情</h2>
+                <button id="close-details">关闭</button>
+            </div>
+            <div id="event-details-content"></div>
+        </div>
+    </div>
+    
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+</body>
+</html>
+    
