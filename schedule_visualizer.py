@@ -1695,12 +1695,10 @@ document.addEventListener('DOMContentLoaded', function() {
     
     document.getElementById('completed-view').addEventListener('click', function() {
         switchView('completed');
-        renderCompletedView();
     });
     
     document.getElementById('time-review-view').addEventListener('click', function() {
         switchView('time-review');
-        renderTimeReviewView();
     });
     
     document.getElementById('llm-view').addEventListener('click', function() {
@@ -1850,6 +1848,12 @@ function updateDateDisplay() {
 
 // 加载事件数据
 function loadEvents(retry = false) {
+    // 如果当前视图是已完成或时间复盘视图，则不加载事件
+    if (currentView === 'completed' || currentView === 'time-review') {
+        console.log(`当前视图是 ${currentView}，不需要加载普通事件数据`);
+        return;
+    }
+    
     // 如果已经在加载中，则忽略请求（除非是重试）
     if (isLoadingEvents && !retry) {
         console.log("事件数据正在加载中，忽略重复请求");
@@ -1925,7 +1929,6 @@ function loadEvents(retry = false) {
             break;
             
         case 'list':
-        case 'completed':
             // 默认显示当前月
             const firstDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
             // 获取前一天的日期，以包含可能的跨天事件
@@ -1944,7 +1947,7 @@ function loadEvents(retry = false) {
     
     // 设置请求超时
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10秒超时
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
     
     // 获取事件数据
     fetch(apiUrl, { signal: controller.signal })
@@ -1962,11 +1965,6 @@ function loadEvents(retry = false) {
             console.log(`事件数据已加载，共 ${data.length} 个事件`);
             events = data;
             renderCurrentView();
-            
-            // 加载已完成事件视图（如果需要）
-            if (currentView === 'completed') {
-                renderCompletedView();
-            }
             
             // 隐藏加载指示器
             hideLoadingIndicator();
@@ -2160,12 +2158,7 @@ function renderCurrentView() {
         case 'list':
             renderListView();
             break;
-        case 'completed':
-            renderCompletedView();
-            break;
-        case 'time-review':
-            renderTimeReviewView();
-            break;
+        // 注意：completed 和 time-review 视图在 switchView 函数中处理
     }
     
     // 添加当前时间指示线
@@ -2933,10 +2926,14 @@ function deleteCompletedTask(taskId) {
             
             // 延迟一段时间后重新加载事件，确保后端处理完成
             setTimeout(() => {
-                // 重新加载事件
-                loadEvents();
-                // 刷新已完成任务列表
-                renderCompletedView();
+                // 根据当前视图刷新数据
+                if (currentView === 'completed') {
+                    renderCompletedView();
+                } else if (currentView === 'time-review') {
+                    renderTimeReviewView();
+                } else {
+                    loadEvents();
+                }
             }, 500);
         } else {
             // 处理失败，从已处理完成集合中移除事件ID
@@ -3427,10 +3424,14 @@ function submitCompleteTask() {
 
             // 延迟一段时间后重新加载事件，确保后端处理完成
             setTimeout(() => {
-                // 重新加载事件
-                loadEvents();
-                // 刷新已完成任务列表
-                renderCompletedView();
+                // 根据当前视图刷新数据
+                if (currentView === 'completed') {
+                    renderCompletedView();
+                } else if (currentView === 'time-review') {
+                    renderTimeReviewView();
+                } else {
+                    loadEvents();
+                }
             }, 500);
         } else {
             // 处理失败，从已处理完成集合中移除事件ID
