@@ -1162,6 +1162,11 @@ function showEventDetails(event) {
         details.push(`<strong>完成时间:</strong> ${event.completion_date}`);
     }
     
+    // 如果是已完成事件，显示实际发生时间范围
+    if (isCompleted && event.actual_time_range) {
+        details.push(`<strong>实际发生时间:</strong> ${event.actual_time_range}`);
+    }
+    
     if (isCompleted && event.completion_notes) {
         details.push(`<strong>完成备注:</strong> ${event.completion_notes}`);
     }
@@ -1191,7 +1196,7 @@ function showEventDetails(event) {
         completeButton.className = 'action-button complete-button';
         completeButton.textContent = '标记为已完成';
         completeButton.addEventListener('click', function() {
-            markEventCompleted(event.id, true);
+            markEventCompleted(event.id, event.date);
         });
         detailsContent.appendChild(document.createElement('br'));
         detailsContent.appendChild(completeButton);
