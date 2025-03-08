@@ -46,6 +46,7 @@ class TimetableProcessor:
             deadline TEXT,
             importance INTEGER,
             recurrence_rule TEXT,
+            completed INTEGER DEFAULT 0,
             last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
         ''')
@@ -81,6 +82,12 @@ class TimetableProcessor:
         if 'recurrence_rule' not in columns:
             print("Adding recurrence_rule column to timetable")
             cursor.execute("ALTER TABLE timetable ADD COLUMN recurrence_rule TEXT")
+            conn.commit()
+        
+        # 检查completed列是否存在，如果不存在则添加
+        if 'completed' not in columns:
+            print("Adding completed column to timetable")
+            cursor.execute("ALTER TABLE timetable ADD COLUMN completed INTEGER DEFAULT 0")
             conn.commit()
         
         if close_conn:
@@ -1762,3 +1769,130 @@ class TimetableProcessor:
                     writer.writerows(rows)
                     
             return found
+
+    def mark_event_completed(self, event_id, completed=True):
+        """
+        标记事件为已完成或未完成。
+        
+        Args:
+            event_id (int): 事件ID
+            completed (bool): 是否已完成，默认为True
+        
+        Returns:
+            bool: 操作是否成功
+        """
+        if self.database_type == "sqlite":
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            
+            try:
+                # 将布尔值转换为整数（0或1）
+                completed_int = 1 if completed else 0
+                
+                # 更新事件的完成状态
+                cursor.execute(
+                    'UPDATE timetable SET completed = ?, last_updated = CURRENT_TIMESTAMP WHERE id = ?',
+                    (completed_int, event_id)
+                )
+                
+                conn.commit()
+                success = cursor.rowcount > 0
+                conn.close()
+                return success
+            except Exception as e:
+                print(f"Error marking event as completed: {e}")
+                conn.close()
+                return False
+        elif self.database_type == "csv":
+            # 读取所有事件
+            events = []
+            with open(self.csv_path, 'r', newline='', encoding='utf-8') as file:
+                reader = csv.DictReader(file)
+                fieldnames = reader.fieldnames
+                for row in reader:
+                    if row['id'] == str(event_id):
+                        row['completed'] = '1' if completed else '0'
+                        row['last_updated'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                    events.append(row)
+            
+            # 写回所有事件
+            try:
+                with open(self.csv_path, 'w', newline='', encoding='utf-8') as file:
+                    writer = csv.DictWriter(file, fieldnames=fieldnames)
+                    writer.writeheader()
+                    writer.writerows(events)
+                return True
+            except Exception as e:
+                print(f"Error marking event as completed in CSV: {e}")
+                return False
+    
+    def get_completed_events(self, date_from=None, date_to=None, limit=None, offset=0):
+        """
+        获取已完成的事件。
+        
+        Args:
+            date_from (str, optional): 开始日期，格式为'YYYY-MM-DD'
+            date_to (str, optional): 结束日期，格式为'YYYY-MM-DD'
+            limit (int, optional): 最大返回事件数
+            offset (int, optional): 跳过的事件数
+        
+        Returns:
+            list: 已完成事件列表
+        """
+        if self.database_type == "sqlite":
+            conn = sqlite3.connect(self.db_path)
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            
+            query = 'SELECT * FROM timetable WHERE completed = 1'
+            params = []
+            
+            # 添加日期范围过滤
+            if date_from:
+                query += ' AND date >= ?'
+                params.append(date_from)
+            
+            if date_to:
+                query += ' AND date <= ?'
+                params.append(date_to)
+            
+            # 添加排序
+            query += ' ORDER BY date DESC, time_range'
+            
+            # 添加分页
+            if limit is not None:
+                query += ' LIMIT ?'
+                params.append(limit)
+                
+                if offset:
+                    query += ' OFFSET ?'
+                    params.append(offset)
+            
+            cursor.execute(query, params)
+            events = [dict(row) for row in cursor.fetchall()]
+            
+            conn.close()
+            return events
+        elif self.database_type == "csv":
+            events = []
+            with open(self.csv_path, 'r', newline='', encoding='utf-8') as file:
+                reader = csv.DictReader(file)
+                for row in reader:
+                    if row.get('completed') == '1':
+                        # 日期范围过滤
+                        if date_from and row['date'] < date_from:
+                            continue
+                        if date_to and row['date'] > date_to:
+                            continue
+                        events.append(row)
+            
+            # 排序
+            events.sort(key=lambda x: (x['date'], x['time_range']), reverse=True)
+            
+            # 分页
+            if offset:
+                events = events[offset:]
+            if limit is not None:
+                events = events[:limit]
+                
+            return events

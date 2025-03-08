@@ -68,43 +68,42 @@ function switchView(viewType) {
     // 更新当前视图
     currentView = viewType;
     
-    // 移除所有按钮的active类
-    document.querySelectorAll('.view-controls button').forEach(btn => {
-        btn.classList.remove('active');
+    // 更新视图按钮状态
+    document.querySelectorAll('.view-controls button').forEach(button => {
+        button.classList.toggle('active', button.id === `${viewType}-view`);
     });
     
-    // 添加当前按钮的active类
-    document.getElementById(viewType + '-view').classList.add('active');
+    // 更新导航控件显示
+    document.querySelectorAll('.navigation-controls').forEach(nav => {
+        nav.classList.remove('active');
+    });
+    
+    // 显示对应的导航控件
+    if (viewType === 'month') {
+        document.getElementById('month-navigation').classList.add('active');
+    } else if (viewType === 'week') {
+        document.getElementById('week-navigation').classList.add('active');
+    } else if (viewType === 'day') {
+        document.getElementById('day-navigation').classList.add('active');
+    }
     
     // 隐藏所有视图
     document.querySelectorAll('.view').forEach(view => {
         view.classList.remove('active');
     });
     
-    // 显示对应的视图
-    document.getElementById(viewType + '-grid').classList.add('active');
-    
-    // 隐藏所有导航控件
-    document.querySelectorAll('.navigation-controls').forEach(nav => {
-        nav.classList.remove('active');
-    });
-    
-    // 显示对应的导航控件
-    if (viewType === 'list') {
-        // 列表视图使用月份导航
-        document.getElementById('month-navigation').classList.add('active');
-    } else {
-        document.getElementById(viewType + '-navigation').classList.add('active');
-    }
-    
-    // 关闭事件详情弹窗
-    document.getElementById('event-details').classList.add('hidden');
+    // 显示选中的视图
+    document.getElementById(`${viewType}-grid`).classList.add('active');
     
     // 更新日期显示
     updateDateDisplay();
     
-    // 重新加载事件数据
-    loadEvents();
+    // 根据视图类型加载事件
+    if (viewType === 'completed') {
+        renderCompletedView();
+    } else if (viewType !== 'llm') {
+        loadEvents();
+    }
 }
 
 // 更新日期显示
@@ -185,22 +184,23 @@ function loadEvents() {
             prevDayOfList.setDate(prevDayOfList.getDate() - 1);
             
             const lastDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
-            dateFrom = formatDate(prevDayOfList); // 从前一天开始
+            dateFrom = formatDate(prevDayOfList);
             dateTo = formatDate(lastDayOfMonth);
             break;
     }
     
-    console.log("加载事件数据:", dateFrom, "到", dateTo);
+    // 构建API URL
+    let apiUrl = `/api/events?date_from=${dateFrom}&date_to=${dateTo}`;
     
-    // 发送API请求获取事件
-    fetch(`/api/events?date_from=${dateFrom}&date_to=${dateTo}`)
+    // 获取事件数据
+    fetch(apiUrl)
         .then(response => response.json())
         .then(data => {
             events = data;
             renderCurrentView();
         })
         .catch(error => {
-            console.error('获取事件数据失败:', error);
+            console.error('Error loading events:', error);
         });
 }
 
@@ -350,6 +350,7 @@ function renderCurrentView() {
 // 渲染月视图
 function renderMonthView() {
     const monthGrid = document.getElementById('month-grid');
+    monthGrid.innerHTML = ''; // 清空内容
     
     // 添加星期标题
     const weekdays = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
@@ -391,17 +392,7 @@ function renderMonthView() {
         
         // 添加事件到日期单元格
         dayEvents.forEach(event => {
-            const eventItem = document.createElement('div');
-            eventItem.className = `event-item type-${event.event_type.toLowerCase()}`;
-            eventItem.textContent = event.title;
-            eventItem.dataset.eventId = event.id;
-            
-            // 添加点击事件显示详情
-            eventItem.addEventListener('click', function() {
-                showEventDetails(event);
-            });
-            
-            dayCell.appendChild(eventItem);
+            renderEventItem(event, dayCell);
         });
         
         monthGrid.appendChild(dayCell);
@@ -417,6 +408,63 @@ function renderMonthView() {
         dayCell.className = 'day-cell empty';
         monthGrid.appendChild(dayCell);
     }
+}
+
+// 渲染事件项
+function renderEventItem(event, container, options = {}) {
+    const eventItem = document.createElement('div');
+    const isCompleted = event.completed === 1 || event.completed === '1';
+    
+    // 设置事件项的类名
+    eventItem.className = `event-item type-${event.event_type.toLowerCase()}`;
+    
+    // 如果事件已完成，添加已完成样式
+    if (isCompleted) {
+        eventItem.classList.add('completed');
+    }
+    
+    // 设置事件内容
+    if (options.customContent) {
+        eventItem.textContent = options.customContent;
+    } else if (options.showTimeRange) {
+        eventItem.textContent = `${event.time_range}: ${event.title}`;
+    } else {
+        eventItem.textContent = event.title;
+    }
+    
+    // 设置事件ID
+    eventItem.dataset.eventId = event.id;
+    
+    // 添加点击事件显示详情
+    eventItem.addEventListener('click', function() {
+        showEventDetails(event);
+    });
+    
+    // 添加完成按钮
+    if (!options.hideCompleteButton) {
+        const completeButton = document.createElement('button');
+        completeButton.className = 'complete-button';
+        completeButton.textContent = isCompleted ? '✓' : '○';
+        completeButton.title = isCompleted ? '标记为未完成' : '标记为已完成';
+        
+        // 阻止事件冒泡，避免点击按钮时触发事件详情
+        completeButton.addEventListener('click', function(e) {
+            e.stopPropagation();
+            markEventCompleted(event.id, !isCompleted);
+        });
+        
+        eventItem.appendChild(completeButton);
+    }
+    
+    // 应用自定义样式
+    if (options.style) {
+        Object.assign(eventItem.style, options.style);
+    }
+    
+    // 添加到容器
+    container.appendChild(eventItem);
+    
+    return eventItem;
 }
 
 // 解析时间字符串为小时和分钟
@@ -487,37 +535,38 @@ function calculateEventPosition(timeRange) {
 
 // 渲染周视图
 function renderWeekView() {
-    console.log("渲染周视图");
     const weekGrid = document.getElementById('week-grid');
+    weekGrid.innerHTML = ''; // 清空内容
     
-    // 计算当前周的起始日期
-    const startOfWeek = new Date(currentDate);
-    startOfWeek.setDate(currentDate.getDate() - currentDate.getDay());
-    
-    // 添加时间列
+    // 创建时间轴标签列
     const timeColumn = document.createElement('div');
     timeColumn.className = 'time-column';
     
     // 添加空白头部单元格
     const emptyHeader = document.createElement('div');
-    emptyHeader.className = 'week-day-header empty';
+    emptyHeader.className = 'week-day-header';
     timeColumn.appendChild(emptyHeader);
     
-    // 添加时间单元格
+    // 添加时间标签
     for (let hour = 0; hour < 24; hour++) {
-        const timeCell = document.createElement('div');
-        timeCell.className = 'time-cell';
-        timeCell.textContent = `${hour.toString().padStart(2, '0')}:00`;
-        timeColumn.appendChild(timeCell);
+        const timeLabel = document.createElement('div');
+        timeLabel.className = 'time-label';
+        timeLabel.textContent = `${hour}:00`;
+        timeLabel.style.position = 'absolute';
+        timeLabel.style.top = `${hour * 40 + 30}px`;
+        timeColumn.appendChild(timeLabel);
     }
     
     weekGrid.appendChild(timeColumn);
     
-    // 创建日期列数组，用于后续处理跨天事件
+    // 获取当前周的起始日期（周日）
+    const startOfWeek = new Date(currentDate);
+    startOfWeek.setDate(currentDate.getDate() - currentDate.getDay());
+    
+    // 创建每一天的列
     const dayColumns = [];
     const dayDates = [];
     
-    // 添加每天的列
     for (let i = 0; i < 7; i++) {
         const dayDate = new Date(startOfWeek);
         dayDate.setDate(startOfWeek.getDate() + i);
@@ -525,10 +574,9 @@ function renderWeekView() {
         dayDates.push(dateStr);
         
         const dayColumn = document.createElement('div');
-        dayColumn.className = 'week-day-column';
-        dayColumn.dataset.date = dateStr;
+        dayColumn.className = 'day-column';
         
-        // 添加日期头部
+        // 添加日期标题
         const dayHeader = document.createElement('div');
         dayHeader.className = 'week-day-header';
         dayHeader.textContent = `${dayDate.getMonth() + 1}/${dayDate.getDate()} ${['周日', '周一', '周二', '周三', '周四', '周五', '周六'][dayDate.getDay()]}`;
@@ -571,24 +619,23 @@ function renderWeekView() {
         const currentDayPosition = calculateEventPosition(currentDayTimeRange);
         
         if (currentDayPosition) {
-            const eventItem = document.createElement('div');
-            eventItem.className = `event-item type-${event.event_type.toLowerCase()}`;
-            eventItem.textContent = `${event.time_range}: ${event.title}`;
-            eventItem.dataset.eventId = event.id;
-            eventItem.dataset.date = event.date;
+            // 使用renderEventItem函数创建事件元素
+            const eventStyle = {
+                position: 'absolute',
+                top: `${currentDayPosition.top}px`,
+                left: '5px',
+                right: '5px',
+                height: `${currentDayPosition.height}px`,
+                zIndex: '2'
+            };
             
-            eventItem.style.position = 'absolute';
-            eventItem.style.top = `${currentDayPosition.top}px`;
-            eventItem.style.left = '5px';
-            eventItem.style.right = '5px';
-            eventItem.style.height = `${currentDayPosition.height}px`;
+            // 设置事件显示内容
+            const eventOptions = {
+                style: eventStyle,
+                customContent: `${event.time_range}: ${event.title}`
+            };
             
-            // 添加点击事件显示详情
-            eventItem.addEventListener('click', function() {
-                showEventDetails(event);
-            });
-            
-            dayColumns[dateIndex].appendChild(eventItem);
+            renderEventItem(event, dayColumns[dateIndex], eventOptions);
         }
         
         // 如果是跨天事件，且次日也在当前周内，则在次日也显示事件
@@ -597,25 +644,23 @@ function renderWeekView() {
             const nextDayPosition = calculateEventPosition(nextDayTimeRange);
             
             if (nextDayPosition) {
-                const nextDayEventItem = document.createElement('div');
-                nextDayEventItem.className = `event-item type-${event.event_type.toLowerCase()}`;
-                nextDayEventItem.textContent = `(续) ${event.title}`;
-                nextDayEventItem.dataset.eventId = event.id;
-                nextDayEventItem.dataset.date = event.date;
-                nextDayEventItem.dataset.isNextDay = "true";
+                // 使用renderEventItem函数创建次日事件元素
+                const nextDayStyle = {
+                    position: 'absolute',
+                    top: `${nextDayPosition.top}px`,
+                    left: '5px',
+                    right: '5px',
+                    height: `${nextDayPosition.height}px`,
+                    zIndex: '2'
+                };
                 
-                nextDayEventItem.style.position = 'absolute';
-                nextDayEventItem.style.top = `${nextDayPosition.top}px`;
-                nextDayEventItem.style.left = '5px';
-                nextDayEventItem.style.right = '5px';
-                nextDayEventItem.style.height = `${nextDayPosition.height}px`;
+                // 设置次日事件显示内容
+                const nextDayOptions = {
+                    style: nextDayStyle,
+                    customContent: `(续) ${event.title}`
+                };
                 
-                // 添加点击事件显示详情
-                nextDayEventItem.addEventListener('click', function() {
-                    showEventDetails(event);
-                });
-                
-                dayColumns[dateIndex + 1].appendChild(nextDayEventItem);
+                renderEventItem(event, dayColumns[dateIndex + 1], nextDayOptions);
             }
         }
     });
@@ -631,69 +676,72 @@ function renderWeekView() {
         eventDate.setDate(eventDate.getDate() + 1);
         const nextDateStr = formatDate(eventDate);
         
-        // 检查次日是否是周日（当前周的第一天）
-        if (nextDateStr === dayDates[0]) {
-            console.log("找到周六到周日的跨天事件:", event);
+        // 检查次日是否在当前周内
+        const nextDateIndex = dayDates.indexOf(nextDateStr);
+        if (nextDateIndex === -1) return; // 如果次日不在当前周内，跳过
+        
+        // 获取次日的时间范围
+        const nextDayTimeRange = getNextDayTimeRange(event.time_range);
+        const position = calculateEventPosition(nextDayTimeRange);
+        
+        if (position) {
+            // 使用renderEventItem函数创建次日事件元素
+            const nextDayStyle = {
+                position: 'absolute',
+                top: `${position.top}px`,
+                left: '5px',
+                right: '5px',
+                height: `${position.height}px`,
+                zIndex: '2'
+            };
             
-            // 获取次日的时间范围
-            const nextDayTimeRange = getNextDayTimeRange(event.time_range);
-            const nextDayPosition = calculateEventPosition(nextDayTimeRange);
+            // 设置次日事件显示内容
+            const nextDayOptions = {
+                style: nextDayStyle,
+                customContent: `(续) ${event.title}`
+            };
             
-            if (nextDayPosition) {
-                const nextDayEventItem = document.createElement('div');
-                nextDayEventItem.className = `event-item type-${event.event_type.toLowerCase()}`;
-                nextDayEventItem.textContent = `(续) ${event.title}`;
-                nextDayEventItem.dataset.eventId = event.id;
-                nextDayEventItem.dataset.date = event.date;
-                nextDayEventItem.dataset.isNextDay = "true";
-                
-                nextDayEventItem.style.position = 'absolute';
-                nextDayEventItem.style.top = `${nextDayPosition.top}px`;
-                nextDayEventItem.style.left = '5px';
-                nextDayEventItem.style.right = '5px';
-                nextDayEventItem.style.height = `${nextDayPosition.height}px`;
-                
-                // 添加点击事件显示详情
-                nextDayEventItem.addEventListener('click', function() {
-                    showEventDetails(event);
-                });
-                
-                dayColumns[0].appendChild(nextDayEventItem);
-            }
+            renderEventItem(event, dayColumns[nextDateIndex], nextDayOptions);
         }
     });
+    
+    // 添加当前时间指示线
+    addCurrentTimeIndicator();
 }
 
 // 渲染日视图
 function renderDayView() {
     const dayGrid = document.getElementById('day-grid');
+    dayGrid.innerHTML = ''; // 清空内容
     
-    // 添加时间列
+    // 创建时间轴标签列
     const timeColumn = document.createElement('div');
     timeColumn.className = 'time-column';
     
     // 添加空白头部单元格
     const emptyHeader = document.createElement('div');
-    emptyHeader.className = 'week-day-header empty';
+    emptyHeader.className = 'day-header';
     timeColumn.appendChild(emptyHeader);
     
-    // 添加时间单元格
+    // 添加时间标签
     for (let hour = 0; hour < 24; hour++) {
-        const timeCell = document.createElement('div');
-        timeCell.className = 'time-cell';
-        timeCell.textContent = `${hour.toString().padStart(2, '0')}:00`;
-        timeColumn.appendChild(timeCell);
+        const timeLabel = document.createElement('div');
+        timeLabel.className = 'time-label';
+        timeLabel.textContent = `${hour}:00`;
+        timeLabel.style.position = 'absolute';
+        timeLabel.style.top = `${hour * 40 + 30}px`;
+        timeColumn.appendChild(timeLabel);
     }
     
     dayGrid.appendChild(timeColumn);
     
-    // 添加当天的列
+    // 创建当天的列
     const dayColumn = document.createElement('div');
     dayColumn.className = 'day-column';
     
-    // 添加日期头部
+    // 添加日期标题
     const dayHeader = document.createElement('div');
-    dayHeader.className = 'week-day-header';
+    dayHeader.className = 'day-header';
     dayHeader.textContent = `${currentDate.getFullYear()}年${currentDate.getMonth() + 1}月${currentDate.getDate()}日 ${['周日', '周一', '周二', '周三', '周四', '周五', '周六'][currentDate.getDay()]}`;
     dayColumn.appendChild(dayHeader);
     
@@ -711,10 +759,12 @@ function renderDayView() {
         dayColumn.appendChild(hourLine);
     }
     
-    // 获取当前日期字符串
+    dayGrid.appendChild(dayColumn);
+    
+    // 获取当前日期的格式化字符串
     const currentDateStr = formatDate(currentDate);
     
-    // 获取当天的事件
+    // 获取当前日期的事件
     const dayEvents = events.filter(event => event.date === currentDateStr);
     
     // 添加当天的事件
@@ -727,23 +777,23 @@ function renderDayView() {
         const position = calculateEventPosition(currentDayTimeRange);
         
         if (position) {
-            const eventItem = document.createElement('div');
-            eventItem.className = `event-item type-${event.event_type.toLowerCase()}`;
-            eventItem.textContent = `${event.time_range}: ${event.title}`;
-            eventItem.dataset.eventId = event.id;
+            // 使用renderEventItem函数创建事件元素
+            const eventStyle = {
+                position: 'absolute',
+                top: `${position.top}px`,
+                left: '5px',
+                right: '5px',
+                height: `${position.height}px`,
+                zIndex: '2'
+            };
             
-            eventItem.style.position = 'absolute';
-            eventItem.style.top = `${position.top}px`;
-            eventItem.style.left = '5px';
-            eventItem.style.right = '5px';
-            eventItem.style.height = `${position.height}px`;
+            // 设置事件显示内容
+            const eventOptions = {
+                style: eventStyle,
+                customContent: `${event.time_range}: ${event.title}`
+            };
             
-            // 添加点击事件显示详情
-            eventItem.addEventListener('click', function() {
-                showEventDetails(event);
-            });
-            
-            dayColumn.appendChild(eventItem);
+            renderEventItem(event, dayColumn, eventOptions);
         }
     });
     
@@ -766,35 +816,51 @@ function renderDayView() {
             const position = calculateEventPosition(nextDayTimeRange);
             
             if (position) {
-                const eventItem = document.createElement('div');
-                eventItem.className = `event-item type-${event.event_type.toLowerCase()}`;
-                eventItem.textContent = `(续) ${event.title}`;
-                eventItem.dataset.eventId = event.id;
+                // 使用renderEventItem函数创建次日事件元素
+                const nextDayStyle = {
+                    position: 'absolute',
+                    top: `${position.top}px`,
+                    left: '5px',
+                    right: '5px',
+                    height: `${position.height}px`,
+                    zIndex: '2'
+                };
                 
-                eventItem.style.position = 'absolute';
-                eventItem.style.top = `${position.top}px`;
-                eventItem.style.left = '5px';
-                eventItem.style.right = '5px';
-                eventItem.style.height = `${position.height}px`;
+                // 设置次日事件显示内容
+                const nextDayOptions = {
+                    style: nextDayStyle,
+                    customContent: `(续) ${event.title}`
+                };
                 
-                // 添加点击事件显示详情
-                eventItem.addEventListener('click', function() {
-                    showEventDetails(event);
-                });
-                
-                dayColumn.appendChild(eventItem);
+                renderEventItem(event, dayColumn, nextDayOptions);
             }
         }
     });
     
-    dayGrid.appendChild(dayColumn);
+    // 添加当前时间指示线
+    addCurrentTimeIndicator();
 }
 
 // 渲染列表视图
 function renderListView() {
     const listGrid = document.getElementById('list-grid');
+    listGrid.innerHTML = ''; // 清空内容
     
-    // 按日期分组事件
+    // 创建标题
+    const header = document.createElement('h2');
+    header.textContent = '事件列表';
+    listGrid.appendChild(header);
+    
+    // 如果没有事件，显示提示信息
+    if (events.length === 0) {
+        const emptyMessage = document.createElement('p');
+        emptyMessage.className = 'empty-message';
+        emptyMessage.textContent = '暂无事件';
+        listGrid.appendChild(emptyMessage);
+        return;
+    }
+    
+    // 按日期分组
     const eventsByDate = {};
     events.forEach(event => {
         if (!eventsByDate[event.date]) {
@@ -806,48 +872,42 @@ function renderListView() {
     // 按日期排序
     const sortedDates = Object.keys(eventsByDate).sort();
     
-    // 遍历日期
+    // 创建日期分组列表
     sortedDates.forEach(date => {
-        // 添加日期标题
-        const dateHeader = document.createElement('div');
-        dateHeader.className = 'list-date-header';
+        const dateGroup = document.createElement('div');
+        dateGroup.className = 'date-group';
         
-        // 格式化日期显示
-        const dateParts = date.split('-');
-        const dateObj = new Date(dateParts[0], dateParts[1] - 1, dateParts[2]);
-        dateHeader.textContent = `${dateObj.getFullYear()}年${dateObj.getMonth() + 1}月${dateObj.getDate()}日 ${['周日', '周一', '周二', '周三', '周四', '周五', '周六'][dateObj.getDay()]}`;
+        // 创建日期标题
+        const dateHeader = document.createElement('h3');
+        const dateObj = new Date(date);
+        dateHeader.textContent = `${date} ${['周日', '周一', '周二', '周三', '周四', '周五', '周六'][dateObj.getDay()]}`;
+        dateGroup.appendChild(dateHeader);
         
-        listGrid.appendChild(dateHeader);
+        // 创建事件列表
+        const eventsList = document.createElement('div');
+        eventsList.className = 'events-list';
         
-        // 添加当天的事件
-        eventsByDate[date].forEach(event => {
-            const eventItem = document.createElement('div');
-            eventItem.className = `list-event-item type-${event.event_type.toLowerCase()}`;
+        // 按时间排序
+        eventsByDate[date].sort((a, b) => {
+            // 提取开始时间
+            const getStartTime = (timeRange) => {
+                const parts = timeRange.split('-');
+                return parts[0].trim();
+            };
             
-            // 创建事件内容
-            const eventTitle = document.createElement('div');
-            eventTitle.className = 'event-title';
-            eventTitle.textContent = event.title;
+            const aStart = getStartTime(a.time_range);
+            const bStart = getStartTime(b.time_range);
             
-            const eventTime = document.createElement('div');
-            eventTime.className = 'event-time';
-            eventTime.textContent = `时间: ${event.time_range}`;
-            
-            const eventType = document.createElement('div');
-            eventType.className = 'event-type';
-            eventType.textContent = `类型: ${event.event_type}`;
-            
-            eventItem.appendChild(eventTitle);
-            eventItem.appendChild(eventTime);
-            eventItem.appendChild(eventType);
-            
-            // 添加点击事件显示详情
-            eventItem.addEventListener('click', function() {
-                showEventDetails(event);
-            });
-            
-            listGrid.appendChild(eventItem);
+            return aStart.localeCompare(bStart);
         });
+        
+        // 添加事件
+        eventsByDate[date].forEach(event => {
+            renderEventItem(event, eventsList, { showTimeRange: true });
+        });
+        
+        dateGroup.appendChild(eventsList);
+        listGrid.appendChild(dateGroup);
     });
 }
 
@@ -880,11 +940,51 @@ function showEventDetails(event) {
         details.push(`<strong>描述:</strong> ${event.description}`);
     }
     
+    // 添加完成状态
+    const isCompleted = event.completed === 1 || event.completed === '1';
+    details.push(`<strong>状态:</strong> ${isCompleted ? '已完成' : '未完成'}`);
+    
     // 设置内容
     detailsContent.innerHTML = details.join('<br>');
     
+    // 添加完成/取消完成按钮
+    const completeButton = document.createElement('button');
+    completeButton.className = 'action-button';
+    completeButton.textContent = isCompleted ? '标记为未完成' : '标记为已完成';
+    completeButton.addEventListener('click', function() {
+        markEventCompleted(event.id, !isCompleted);
+    });
+    detailsContent.appendChild(document.createElement('br'));
+    detailsContent.appendChild(completeButton);
+    
     // 显示详情面板
     detailsContainer.classList.remove('hidden');
+}
+
+// 标记事件为已完成或未完成
+function markEventCompleted(eventId, completed) {
+    fetch(`/api/events/${eventId}/complete`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ completed: completed })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            // 关闭详情面板
+            document.getElementById('event-details').classList.add('hidden');
+            // 重新加载事件
+            loadEvents();
+        } else {
+            alert('更新事件状态失败: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('更新事件状态时发生错误');
+    });
 }
 
 // LLM查询相关功能
@@ -1022,5 +1122,72 @@ function submitLLMQuery() {
         
         console.error('LLM查询失败:', error);
     });
+}
+
+// 添加已完成任务列表视图
+function renderCompletedView() {
+    const completedGrid = document.getElementById('completed-grid');
+    completedGrid.innerHTML = ''; // 清空内容
+    
+    // 创建标题
+    const header = document.createElement('h2');
+    header.textContent = '已完成任务';
+    completedGrid.appendChild(header);
+    
+    // 加载已完成事件
+    fetch('/api/events/completed')
+        .then(response => response.json())
+        .then(completedEvents => {
+            if (completedEvents.length === 0) {
+                const emptyMessage = document.createElement('p');
+                emptyMessage.className = 'empty-message';
+                emptyMessage.textContent = '暂无已完成任务';
+                completedGrid.appendChild(emptyMessage);
+                return;
+            }
+            
+            // 按日期分组
+            const eventsByDate = {};
+            completedEvents.forEach(event => {
+                if (!eventsByDate[event.date]) {
+                    eventsByDate[event.date] = [];
+                }
+                eventsByDate[event.date].push(event);
+            });
+            
+            // 按日期排序（降序）
+            const sortedDates = Object.keys(eventsByDate).sort().reverse();
+            
+            // 创建日期分组列表
+            sortedDates.forEach(date => {
+                const dateGroup = document.createElement('div');
+                dateGroup.className = 'date-group';
+                
+                // 创建日期标题
+                const dateHeader = document.createElement('h3');
+                const dateObj = new Date(date);
+                dateHeader.textContent = `${date} ${['周日', '周一', '周二', '周三', '周四', '周五', '周六'][dateObj.getDay()]}`;
+                dateGroup.appendChild(dateHeader);
+                
+                // 创建事件列表
+                const eventsList = document.createElement('div');
+                eventsList.className = 'events-list';
+                
+                // 添加事件
+                eventsByDate[date].forEach(event => {
+                    renderEventItem(event, eventsList, { showTimeRange: true });
+                });
+                
+                dateGroup.appendChild(eventsList);
+                completedGrid.appendChild(dateGroup);
+            });
+        })
+        .catch(error => {
+            console.error('Error loading completed events:', error);
+            const errorMessage = document.createElement('p');
+            errorMessage.className = 'error-message';
+            errorMessage.textContent = '加载已完成任务时发生错误';
+            completedGrid.appendChild(errorMessage);
+        });
 }
     

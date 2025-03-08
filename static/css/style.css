@@ -131,14 +131,136 @@ button:hover {
 }
 
 .event-item {
-    margin-bottom: 5px;
-    padding: 5px;
+    margin: 2px 0;
+    padding: 2px 5px;
     border-radius: 3px;
     font-size: 12px;
-    cursor: pointer;
-    white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    white-space: nowrap;
+    cursor: pointer;
+    position: relative;
+}
+
+/* 已完成事件样式 */
+.event-item.completed {
+    text-decoration: line-through;
+    opacity: 0.7;
+    background-color: #f0f0f0 !important;
+    color: #666 !important;
+    border-left: 3px solid #999 !important;
+}
+
+/* 周视图和日视图中的已完成事件样式 */
+.day-column .event-item.completed {
+    text-decoration: line-through;
+    opacity: 0.7;
+    background-color: rgba(240, 240, 240, 0.9) !important;
+    color: #666 !important;
+    border-left: 3px solid #999 !important;
+}
+
+/* 完成按钮样式 */
+.complete-button {
+    position: absolute;
+    right: 3px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    border: 1px solid #ccc;
+    background-color: white;
+    color: #4CAF50;
+    font-size: 10px;
+    line-height: 1;
+    padding: 0;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+}
+
+/* 周视图和日视图中的完成按钮样式 */
+.day-column .complete-button {
+    right: 5px;
+    top: 5px;
+    transform: none;
+    background-color: rgba(255, 255, 255, 0.9);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.complete-button:hover {
+    background-color: #f0f0f0;
+}
+
+/* 已完成视图样式 */
+#completed-grid {
+    padding: 10px;
+}
+
+#completed-grid h2 {
+    margin-bottom: 20px;
+    color: #333;
+}
+
+.date-group {
+    margin-bottom: 20px;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 10px;
+}
+
+.date-group h3 {
+    margin-bottom: 10px;
+    color: #666;
+    font-size: 16px;
+}
+
+.events-list {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+/* 列表视图中的事件项样式 */
+.events-list .event-item {
+    padding: 8px 10px;
+    border-radius: 4px;
+    margin: 0;
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.events-list .event-item .complete-button {
+    position: absolute;
+    right: 10px;
+}
+
+.empty-message, .error-message {
+    padding: 20px;
+    text-align: center;
+    color: #666;
+}
+
+.error-message {
+    color: #d9534f;
+}
+
+/* 操作按钮样式 */
+.action-button {
+    margin-top: 10px;
+    padding: 5px 10px;
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    border-radius: 3px;
+    cursor: pointer;
+}
+
+.action-button:hover {
+    background-color: #45a049;
 }
 
 /* 时间轴样式 */
