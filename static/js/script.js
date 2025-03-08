@@ -1894,6 +1894,10 @@ function renderTimeReviewView() {
                     titleDiv.textContent = event.title;
                     eventItem.appendChild(titleDiv);
                     
+                    // 时间对比和备注区域的容器
+                    const contentDiv = document.createElement('div');
+                    contentDiv.className = 'time-review-event-content';
+                    
                     // 时间对比区域
                     const timesDiv = document.createElement('div');
                     timesDiv.className = 'time-review-event-times';
@@ -1930,7 +1934,58 @@ function renderTimeReviewView() {
                     
                     timesDiv.appendChild(actualTimeDiv);
                     
-                    eventItem.appendChild(timesDiv);
+                    contentDiv.appendChild(timesDiv);
+                    
+                    // 备注区域
+                    const notesDiv = document.createElement('div');
+                    notesDiv.className = 'time-review-event-notes';
+                    
+                    // 完成备注
+                    if (event.completion_notes) {
+                        const completionNotesDiv = document.createElement('div');
+                        completionNotesDiv.className = 'time-review-notes-section';
+                        
+                        const completionLabel = document.createElement('div');
+                        completionLabel.className = 'time-review-notes-label';
+                        completionLabel.textContent = '完成备注';
+                        completionNotesDiv.appendChild(completionLabel);
+                        
+                        const completionValue = document.createElement('div');
+                        completionValue.className = 'time-review-notes-value';
+                        completionValue.textContent = event.completion_notes;
+                        completionNotesDiv.appendChild(completionValue);
+                        
+                        notesDiv.appendChild(completionNotesDiv);
+                    }
+                    
+                    // 复盘笔记
+                    if (event.reflection_notes) {
+                        const reflectionNotesDiv = document.createElement('div');
+                        reflectionNotesDiv.className = 'time-review-notes-section';
+                        
+                        const reflectionLabel = document.createElement('div');
+                        reflectionLabel.className = 'time-review-notes-label';
+                        reflectionLabel.textContent = '复盘笔记';
+                        reflectionNotesDiv.appendChild(reflectionLabel);
+                        
+                        const reflectionValue = document.createElement('div');
+                        reflectionValue.className = 'time-review-notes-value';
+                        reflectionValue.textContent = event.reflection_notes;
+                        reflectionNotesDiv.appendChild(reflectionValue);
+                        
+                        notesDiv.appendChild(reflectionNotesDiv);
+                    }
+                    
+                    // 如果没有备注，显示一个提示
+                    if (!event.completion_notes && !event.reflection_notes) {
+                        const noNotesDiv = document.createElement('div');
+                        noNotesDiv.className = 'time-review-no-notes';
+                        noNotesDiv.textContent = '无备注信息';
+                        notesDiv.appendChild(noNotesDiv);
+                    }
+                    
+                    contentDiv.appendChild(notesDiv);
+                    eventItem.appendChild(contentDiv);
                     eventsList.appendChild(eventItem);
                 });
                 
