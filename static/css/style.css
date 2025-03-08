@@ -172,7 +172,7 @@ button:hover {
 
 .event-item {
     margin: 2px 0;
-    padding: 2px 5px;
+    padding: 2px 25px 2px 5px; /* 增加右侧内边距，为删除按钮留出空间 */
     border-radius: 3px;
     font-size: 12px;
     overflow: hidden;
@@ -746,5 +746,41 @@ select {
     opacity: 0.5;
     pointer-events: none;
     transition: all 0.5s ease;
+}
+
+/* 删除按钮样式 */
+.delete-button {
+    position: absolute;
+    right: 3px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    border: 1px solid #ccc;
+    background-color: white;
+    color: #f44336;
+    font-size: 10px;
+    line-height: 1;
+    padding: 0;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+}
+
+/* 周视图和日视图中的删除按钮样式 */
+.day-column .delete-button {
+    right: 5px;
+    top: 5px;
+    transform: none;
+    background-color: rgba(255, 255, 255, 0.9);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.delete-button:hover {
+    background-color: #f44336;
+    color: white;
 }
     
