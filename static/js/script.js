@@ -144,8 +144,12 @@ function loadEvents() {
         case 'month':
             // 计算当前月份的起始日期和结束日期
             const firstDay = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
+            // 获取前一天的日期，以包含可能的跨天事件
+            const prevDayOfMonth = new Date(firstDay);
+            prevDayOfMonth.setDate(prevDayOfMonth.getDate() - 1);
+            
             const lastDay = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
-            dateFrom = formatDate(firstDay);
+            dateFrom = formatDate(prevDayOfMonth); // 从前一天开始
             dateTo = formatDate(lastDay);
             break;
             
@@ -153,23 +157,35 @@ function loadEvents() {
             // 计算当前周的起始日期和结束日期
             const startOfWeek = new Date(currentDate);
             startOfWeek.setDate(currentDate.getDate() - currentDate.getDay());
+            
+            // 获取周日前一天的日期，以包含可能的跨天事件
+            const prevDayOfWeek = new Date(startOfWeek);
+            prevDayOfWeek.setDate(prevDayOfWeek.getDate() - 1);
+            
             const endOfWeek = new Date(startOfWeek);
             endOfWeek.setDate(startOfWeek.getDate() + 6);
-            dateFrom = formatDate(startOfWeek);
+            
+            dateFrom = formatDate(prevDayOfWeek); // 从周日前一天开始
             dateTo = formatDate(endOfWeek);
             break;
             
         case 'day':
-            // 当前日期
-            dateFrom = formatDate(currentDate);
-            dateTo = dateFrom;
+            // 当前日期和前一天
+            const prevDay = new Date(currentDate);
+            prevDay.setDate(prevDay.getDate() - 1);
+            dateFrom = formatDate(prevDay); // 从前一天开始
+            dateTo = formatDate(currentDate);
             break;
             
         case 'list':
             // 默认显示当前月
             const firstDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
+            // 获取前一天的日期，以包含可能的跨天事件
+            const prevDayOfList = new Date(firstDayOfMonth);
+            prevDayOfList.setDate(prevDayOfList.getDate() - 1);
+            
             const lastDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
-            dateFrom = formatDate(firstDayOfMonth);
+            dateFrom = formatDate(prevDayOfList); // 从前一天开始
             dateTo = formatDate(lastDayOfMonth);
             break;
     }
@@ -411,6 +427,36 @@ function parseTimeString(timeStr) {
     return { hour, minute };
 }
 
+// 检查事件是否跨天
+function isOvernightEvent(timeRange) {
+    if (!timeRange || timeRange.length === 0) return false;
+    
+    const parts = timeRange.split('-');
+    if (parts.length !== 2) return false;
+    
+    const startTime = parseTimeString(parts[0]);
+    const endTime = parseTimeString(parts[1]);
+    
+    // 如果结束时间小于开始时间，则认为是跨天事件
+    return endTime.hour < startTime.hour || (endTime.hour === startTime.hour && endTime.minute < startTime.minute);
+}
+
+// 获取事件在次日的时间范围
+function getNextDayTimeRange(timeRange) {
+    if (!isOvernightEvent(timeRange)) return null;
+    
+    const parts = timeRange.split('-');
+    return `00:00-${parts[1]}`;
+}
+
+// 获取事件在当天的时间范围
+function getCurrentDayTimeRange(timeRange) {
+    if (!isOvernightEvent(timeRange)) return timeRange;
+    
+    const parts = timeRange.split('-');
+    return `${parts[0]}-24:00`;
+}
+
 // 计算事件在时间轴上的位置
 function calculateEventPosition(timeRange) {
     if (!timeRange || timeRange.length === 0) return null;
@@ -426,7 +472,12 @@ function calculateEventPosition(timeRange) {
     
     // 计算事件持续时间（小时）
     let durationHours = endTime.hour - startTime.hour + (endTime.minute - startTime.minute) / 60;
-    if (durationHours <= 0) durationHours = 0.5; // 最小持续时间30分钟
+    
+    // 处理跨天事件（结束时间小于开始时间，表示跨越到第二天）
+    if (durationHours <= 0) {
+        // 计算到午夜的时间 + 从午夜到结束时间的时间
+        durationHours = (24 - startTime.hour - startTime.minute / 60) + (endTime.hour + endTime.minute / 60);
+    }
     
     // 计算事件高度
     const height = durationHours * 40;
@@ -436,6 +487,7 @@ function calculateEventPosition(timeRange) {
 
 // 渲染周视图
 function renderWeekView() {
+    console.log("渲染周视图");
     const weekGrid = document.getElementById('week-grid');
     
     // 计算当前周的起始日期
@@ -461,13 +513,20 @@ function renderWeekView() {
     
     weekGrid.appendChild(timeColumn);
     
+    // 创建日期列数组，用于后续处理跨天事件
+    const dayColumns = [];
+    const dayDates = [];
+    
     // 添加每天的列
     for (let i = 0; i < 7; i++) {
         const dayDate = new Date(startOfWeek);
         dayDate.setDate(startOfWeek.getDate() + i);
+        const dateStr = formatDate(dayDate);
+        dayDates.push(dateStr);
         
         const dayColumn = document.createElement('div');
         dayColumn.className = 'week-day-column';
+        dayColumn.dataset.date = dateStr;
         
         // 添加日期头部
         const dayHeader = document.createElement('div');
@@ -487,53 +546,122 @@ function renderWeekView() {
             hourLine.style.backgroundColor = '#eee';
             hourLine.style.zIndex = '1';
             dayColumn.appendChild(hourLine);
-            
-            // 添加小时标签（可选，在每个小时处显示时间）
-            if (i === 0) { // 只在第一列添加
-                const hourLabel = document.createElement('div');
-                hourLabel.className = 'hour-label';
-                hourLabel.style.position = 'absolute';
-                hourLabel.style.left = '5px';
-                hourLabel.style.top = `${hour * 40 + 30 - 10}px`;
-                hourLabel.style.fontSize = '10px';
-                hourLabel.style.color = '#999';
-                hourLabel.style.zIndex = '2';
-                hourLabel.textContent = `${hour.toString().padStart(2, '0')}:00`;
-                // 不添加到DOM，因为已经有时间列了
-            }
         }
         
-        // 获取当天的事件
-        const currentDateStr = formatDate(dayDate);
-        const dayEvents = events.filter(event => event.date === currentDateStr);
+        dayColumns.push(dayColumn);
+        weekGrid.appendChild(dayColumn);
+    }
+    
+    // 分两步处理事件：
+    // 1. 处理当前周内的事件
+    // 2. 处理前一天的跨天事件
+    
+    // 第一步：处理当前周内的事件
+    console.log("处理当前周内的事件");
+    events.forEach(event => {
+        // 检查事件日期是否在当前周内
+        const dateIndex = dayDates.indexOf(event.date);
+        if (dateIndex === -1) return; // 如果不在当前周内，跳过
         
-        // 添加事件到日期列
-        dayEvents.forEach(event => {
+        // 检查是否是跨天事件
+        const isOvernight = isOvernightEvent(event.time_range);
+        
+        // 在当天显示事件
+        const currentDayTimeRange = isOvernight ? getCurrentDayTimeRange(event.time_range) : event.time_range;
+        const currentDayPosition = calculateEventPosition(currentDayTimeRange);
+        
+        if (currentDayPosition) {
             const eventItem = document.createElement('div');
             eventItem.className = `event-item type-${event.event_type.toLowerCase()}`;
             eventItem.textContent = `${event.time_range}: ${event.title}`;
             eventItem.dataset.eventId = event.id;
+            eventItem.dataset.date = event.date;
             
-            // 解析时间范围，计算位置
-            const position = calculateEventPosition(event.time_range);
-            if (position) {
-                eventItem.style.position = 'absolute';
-                eventItem.style.top = `${position.top}px`;
-                eventItem.style.left = '5px';
-                eventItem.style.right = '5px';
-                eventItem.style.height = `${position.height}px`;
-            }
+            eventItem.style.position = 'absolute';
+            eventItem.style.top = `${currentDayPosition.top}px`;
+            eventItem.style.left = '5px';
+            eventItem.style.right = '5px';
+            eventItem.style.height = `${currentDayPosition.height}px`;
             
             // 添加点击事件显示详情
             eventItem.addEventListener('click', function() {
                 showEventDetails(event);
             });
             
-            dayColumn.appendChild(eventItem);
-        });
+            dayColumns[dateIndex].appendChild(eventItem);
+        }
         
-        weekGrid.appendChild(dayColumn);
-    }
+        // 如果是跨天事件，且次日也在当前周内，则在次日也显示事件
+        if (isOvernight && dateIndex < 6) {
+            const nextDayTimeRange = getNextDayTimeRange(event.time_range);
+            const nextDayPosition = calculateEventPosition(nextDayTimeRange);
+            
+            if (nextDayPosition) {
+                const nextDayEventItem = document.createElement('div');
+                nextDayEventItem.className = `event-item type-${event.event_type.toLowerCase()}`;
+                nextDayEventItem.textContent = `(续) ${event.title}`;
+                nextDayEventItem.dataset.eventId = event.id;
+                nextDayEventItem.dataset.date = event.date;
+                nextDayEventItem.dataset.isNextDay = "true";
+                
+                nextDayEventItem.style.position = 'absolute';
+                nextDayEventItem.style.top = `${nextDayPosition.top}px`;
+                nextDayEventItem.style.left = '5px';
+                nextDayEventItem.style.right = '5px';
+                nextDayEventItem.style.height = `${nextDayPosition.height}px`;
+                
+                // 添加点击事件显示详情
+                nextDayEventItem.addEventListener('click', function() {
+                    showEventDetails(event);
+                });
+                
+                dayColumns[dateIndex + 1].appendChild(nextDayEventItem);
+            }
+        }
+    });
+    
+    // 第二步：处理前一天的跨天事件（特别是周六到周日的跨天事件）
+    console.log("处理前一天的跨天事件");
+    events.forEach(event => {
+        // 检查是否是跨天事件
+        if (!isOvernightEvent(event.time_range)) return;
+        
+        // 计算事件的次日
+        const eventDate = new Date(event.date);
+        eventDate.setDate(eventDate.getDate() + 1);
+        const nextDateStr = formatDate(eventDate);
+        
+        // 检查次日是否是周日（当前周的第一天）
+        if (nextDateStr === dayDates[0]) {
+            console.log("找到周六到周日的跨天事件:", event);
+            
+            // 获取次日的时间范围
+            const nextDayTimeRange = getNextDayTimeRange(event.time_range);
+            const nextDayPosition = calculateEventPosition(nextDayTimeRange);
+            
+            if (nextDayPosition) {
+                const nextDayEventItem = document.createElement('div');
+                nextDayEventItem.className = `event-item type-${event.event_type.toLowerCase()}`;
+                nextDayEventItem.textContent = `(续) ${event.title}`;
+                nextDayEventItem.dataset.eventId = event.id;
+                nextDayEventItem.dataset.date = event.date;
+                nextDayEventItem.dataset.isNextDay = "true";
+                
+                nextDayEventItem.style.position = 'absolute';
+                nextDayEventItem.style.top = `${nextDayPosition.top}px`;
+                nextDayEventItem.style.left = '5px';
+                nextDayEventItem.style.right = '5px';
+                nextDayEventItem.style.height = `${nextDayPosition.height}px`;
+                
+                // 添加点击事件显示详情
+                nextDayEventItem.addEventListener('click', function() {
+                    showEventDetails(event);
+                });
+                
+                dayColumns[0].appendChild(nextDayEventItem);
+            }
+        }
+    });
 }
 
 // 渲染日视图
@@ -583,33 +711,80 @@ function renderDayView() {
         dayColumn.appendChild(hourLine);
     }
     
-    // 获取当天的事件
+    // 获取当前日期字符串
     const currentDateStr = formatDate(currentDate);
+    
+    // 获取当天的事件
     const dayEvents = events.filter(event => event.date === currentDateStr);
     
-    // 添加事件到日期列
+    // 添加当天的事件
     dayEvents.forEach(event => {
-        const eventItem = document.createElement('div');
-        eventItem.className = `event-item type-${event.event_type.toLowerCase()}`;
-        eventItem.textContent = `${event.time_range}: ${event.title}`;
-        eventItem.dataset.eventId = event.id;
+        // 检查是否是跨天事件
+        const isOvernight = isOvernightEvent(event.time_range);
         
-        // 解析时间范围，计算位置
-        const position = calculateEventPosition(event.time_range);
+        // 获取当天的时间范围
+        const currentDayTimeRange = isOvernight ? getCurrentDayTimeRange(event.time_range) : event.time_range;
+        const position = calculateEventPosition(currentDayTimeRange);
+        
         if (position) {
+            const eventItem = document.createElement('div');
+            eventItem.className = `event-item type-${event.event_type.toLowerCase()}`;
+            eventItem.textContent = `${event.time_range}: ${event.title}`;
+            eventItem.dataset.eventId = event.id;
+            
             eventItem.style.position = 'absolute';
             eventItem.style.top = `${position.top}px`;
             eventItem.style.left = '5px';
             eventItem.style.right = '5px';
             eventItem.style.height = `${position.height}px`;
+            
+            // 添加点击事件显示详情
+            eventItem.addEventListener('click', function() {
+                showEventDetails(event);
+            });
+            
+            dayColumn.appendChild(eventItem);
         }
+    });
+    
+    // 获取前一天的日期
+    const prevDate = new Date(currentDate);
+    prevDate.setDate(currentDate.getDate() - 1);
+    const prevDateStr = formatDate(prevDate);
+    
+    // 获取前一天的事件
+    const prevDayEvents = events.filter(event => event.date === prevDateStr);
+    
+    // 添加前一天跨天的事件
+    prevDayEvents.forEach(event => {
+        // 检查是否是跨天事件
+        const isOvernight = isOvernightEvent(event.time_range);
         
-        // 添加点击事件显示详情
-        eventItem.addEventListener('click', function() {
-            showEventDetails(event);
-        });
-        
-        dayColumn.appendChild(eventItem);
+        if (isOvernight) {
+            // 获取次日的时间范围
+            const nextDayTimeRange = getNextDayTimeRange(event.time_range);
+            const position = calculateEventPosition(nextDayTimeRange);
+            
+            if (position) {
+                const eventItem = document.createElement('div');
+                eventItem.className = `event-item type-${event.event_type.toLowerCase()}`;
+                eventItem.textContent = `(续) ${event.title}`;
+                eventItem.dataset.eventId = event.id;
+                
+                eventItem.style.position = 'absolute';
+                eventItem.style.top = `${position.top}px`;
+                eventItem.style.left = '5px';
+                eventItem.style.right = '5px';
+                eventItem.style.height = `${position.height}px`;
+                
+                // 添加点击事件显示详情
+                eventItem.addEventListener('click', function() {
+                    showEventDetails(event);
+                });
+                
+                dayColumn.appendChild(eventItem);
+            }
+        }
     });
     
     dayGrid.appendChild(dayColumn);
