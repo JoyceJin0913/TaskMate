@@ -693,4 +693,135 @@ function showEventDetails(event) {
     // 显示详情面板
     detailsContainer.classList.remove('hidden');
 }
+
+// LLM查询相关功能
+document.addEventListener('DOMContentLoaded', function() {
+    // 绑定LLM视图按钮
+    document.getElementById('llm-view').addEventListener('click', function() {
+        switchView('llm');
+    });
+    
+    // 重复设置下拉框变化事件
+    document.getElementById('recurrence').addEventListener('change', function() {
+        const endDateContainer = document.getElementById('end-date-container');
+        if (this.value) {
+            endDateContainer.classList.remove('hidden');
+        } else {
+            endDateContainer.classList.add('hidden');
+        }
+    });
+    
+    // 提交LLM查询
+    document.getElementById('submit-llm').addEventListener('click', submitLLMQuery);
+    
+    // 新的查询按钮
+    document.getElementById('new-query').addEventListener('click', function() {
+        document.querySelector('.llm-form').classList.remove('hidden');
+        document.getElementById('llm-results').classList.add('hidden');
+        document.getElementById('llm-prompt').value = '';
+    });
+});
+
+// 提交LLM查询
+function submitLLMQuery() {
+    // 获取用户输入
+    const prompt = document.getElementById('llm-prompt').value.trim();
+    if (!prompt) {
+        alert('请输入日程安排需求');
+        return;
+    }
+    
+    // 获取选项
+    const model = document.querySelector('input[name="model"]:checked').value;
+    const recurrence = document.getElementById('recurrence').value;
+    const endDate = document.getElementById('end-date').value;
+    const showSummary = document.getElementById('show-summary').checked;
+    const showChanges = document.getElementById('show-changes').checked;
+    const showEvents = document.getElementById('show-events').checked;
+    const showUnchanged = document.getElementById('show-unchanged').checked;
+    
+    // 显示加载指示器
+    document.getElementById('loading-indicator').classList.remove('hidden');
+    document.getElementById('submit-llm').disabled = true;
+    
+    // 准备请求数据
+    const requestData = {
+        prompt: prompt,
+        model: model,
+        recurrence: recurrence,
+        end_date: endDate,
+        show_summary: showSummary,
+        show_changes: showChanges,
+        show_events: showEvents,
+        show_unchanged: showUnchanged
+    };
+    
+    // 发送API请求
+    fetch('/api/llm-query', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(requestData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        // 隐藏加载指示器
+        document.getElementById('loading-indicator').classList.add('hidden');
+        document.getElementById('submit-llm').disabled = false;
+        
+        // 显示结果区域
+        document.querySelector('.llm-form').classList.add('hidden');
+        document.getElementById('llm-results').classList.remove('hidden');
+        
+        // 显示模型回复
+        document.getElementById('llm-response').textContent = data.response || '';
+        
+        // 显示处理摘要（如果有）
+        if (data.summary && showSummary) {
+            document.getElementById('summary-section').classList.remove('hidden');
+            document.getElementById('summary-content').textContent = data.summary;
+        } else {
+            document.getElementById('summary-section').classList.add('hidden');
+        }
+        
+        // 显示变更详情（如果有）
+        if (data.changes && showChanges) {
+            document.getElementById('changes-section').classList.remove('hidden');
+            document.getElementById('changes-content').textContent = data.changes;
+        } else {
+            document.getElementById('changes-section').classList.add('hidden');
+        }
+        
+        // 显示所有事件（如果需要）
+        if (data.events && showEvents) {
+            document.getElementById('events-section').classList.remove('hidden');
+            document.getElementById('events-content').textContent = data.events;
+        } else {
+            document.getElementById('events-section').classList.add('hidden');
+        }
+        
+        // 显示错误信息（如果有）
+        if (data.error) {
+            document.getElementById('error-section').classList.remove('hidden');
+            document.getElementById('error-content').textContent = data.error;
+        } else {
+            document.getElementById('error-section').classList.add('hidden');
+        }
+        
+        // 刷新事件数据
+        loadEvents();
+    })
+    .catch(error => {
+        // 隐藏加载指示器
+        document.getElementById('loading-indicator').classList.add('hidden');
+        document.getElementById('submit-llm').disabled = false;
+        
+        // 显示错误信息
+        document.getElementById('error-section').classList.remove('hidden');
+        document.getElementById('error-content').textContent = '请求失败: ' + error.message;
+        
+        console.error('LLM查询失败:', error);
+    });
+}
     

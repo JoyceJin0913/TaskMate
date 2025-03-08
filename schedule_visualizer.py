@@ -3,6 +3,7 @@ import os
 import json
 from datetime import datetime, timedelta
 from schedule_parser import TimetableProcessor
+from query_api import query_api
 
 app = Flask(__name__)
 app.config['TEMPLATES_AUTO_RELOAD'] = True
@@ -53,6 +54,90 @@ def get_events_for_date(date):
     """获取特定日期的事件"""
     events = timetable_processor.get_events_for_date(date)
     return jsonify(events)
+
+@app.route('/api/llm-query', methods=['POST'])
+def llm_query():
+    """处理LLM查询请求"""
+    try:
+        # 获取请求数据
+        data = request.json
+        prompt = data.get('prompt', '')
+        model = data.get('model', 'deepseek-chat')
+        recurrence = data.get('recurrence', '')
+        end_date = data.get('end_date', '')
+        show_summary = data.get('show_summary', True)
+        show_changes = data.get('show_changes', True)
+        show_events = data.get('show_events', False)
+        show_unchanged = data.get('show_unchanged', False)
+        limit = data.get('limit', 20)
+        
+        # 获取当前事件列表
+        current_events = timetable_processor.format_events_as_llm_output(include_header=False, limit=limit)
+        
+        # 查询LLM
+        response = query_api(prompt, current_events, model=model)
+        
+        # 准备返回结果
+        result = {
+            'response': response,
+            'error': None
+        }
+        
+        # 获取修改前的所有事件（如果需要显示变更）
+        if show_changes:
+            old_events = timetable_processor.get_all_events(limit=limit)
+        
+        # 处理事件并更新数据库
+        try:
+            if recurrence:
+                # 如果设置了重复模式，使用 process_recurring_events 方法
+                summary = timetable_processor.process_recurring_events(
+                    response, 
+                    recurrence_rule=recurrence,
+                    end_date=end_date,
+                    handle_conflicts='error'
+                )
+            else:
+                # 否则使用普通的 process_events 方法
+                summary = timetable_processor.process_events(response)
+            
+            # 添加处理摘要到结果
+            if show_summary:
+                result['summary'] = summary
+            
+            # 添加变更详情到结果
+            if show_changes:
+                new_events = timetable_processor.get_all_events(limit=limit)
+                changes = timetable_processor.format_events_with_changes(
+                    old_events, 
+                    new_events, 
+                    include_header=True, 
+                    show_unchanged=show_unchanged
+                )
+                result['changes'] = changes
+            
+            # 添加当前所有事件到结果
+            if show_events:
+                formatted_output = timetable_processor.format_events_as_llm_output(limit=limit)
+                result['events'] = formatted_output
+                
+        except ValueError as e:
+            error_message = str(e)
+            result['error'] = error_message
+            
+            # 添加提示信息
+            if "conflict" in error_message.lower():
+                result['error'] += "\n提示：事件时间冲突。您可以修改事件时间或删除冲突的事件。"
+            if "date" in error_message.lower() or "time" in error_message.lower():
+                result['error'] += "\n提示：日期或时间格式错误。请确保日期格式为YYYY-MM-DD，时间格式为HH:MM。"
+        
+        return jsonify(result)
+        
+    except Exception as e:
+        return jsonify({
+            'response': None,
+            'error': f"处理请求时发生错误: {str(e)}"
+        })
 
 # 确保templates和static目录存在
 def ensure_directories():
@@ -105,6 +190,7 @@ def create_templates():
             <button id="week-view">周视图</button>
             <button id="day-view">日视图</button>
             <button id="list-view">列表视图</button>
+            <button id="llm-view">LLM查询</button>
         </div>
         
         <!-- 视图容器 -->
@@ -120,6 +206,102 @@ def create_templates():
             
             <!-- 列表视图 -->
             <div id="list-grid" class="view"></div>
+            
+            <!-- LLM查询视图 -->
+            <div id="llm-grid" class="view">
+                <div class="llm-container">
+                    <h2>LLM日程规划助手</h2>
+                    <div class="llm-form">
+                        <div class="form-group">
+                            <label for="llm-prompt">请输入您的日程安排需求：</label>
+                            <textarea id="llm-prompt" rows="4" placeholder="例如：明天下午三点要开会，需要提前准备一个小时"></textarea>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>选择模型：</label>
+                            <div class="radio-group">
+                                <input type="radio" id="model-deepseek" name="model" value="deepseek-chat" checked>
+                                <label for="model-deepseek">DeepSeek Chat</label>
+                                
+                                <input type="radio" id="model-gpt4" name="model" value="gpt-4o">
+                                <label for="model-gpt4">GPT-4o</label>
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>重复设置：</label>
+                            <select id="recurrence">
+                                <option value="">不重复</option>
+                                <option value="daily">每天</option>
+                                <option value="weekly">每周</option>
+                                <option value="weekdays">工作日</option>
+                                <option value="monthly">每月</option>
+                                <option value="yearly">每年</option>
+                            </select>
+                            
+                            <div id="end-date-container" class="hidden">
+                                <label for="end-date">结束日期：</label>
+                                <input type="date" id="end-date">
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>显示选项：</label>
+                            <div class="checkbox-group">
+                                <input type="checkbox" id="show-summary" checked>
+                                <label for="show-summary">显示处理摘要</label>
+                                
+                                <input type="checkbox" id="show-changes" checked>
+                                <label for="show-changes">显示变更详情</label>
+                                
+                                <input type="checkbox" id="show-events">
+                                <label for="show-events">显示所有事件</label>
+                                
+                                <input type="checkbox" id="show-unchanged">
+                                <label for="show-unchanged">显示未变化事件</label>
+                            </div>
+                        </div>
+                        
+                        <div class="form-actions">
+                            <button id="submit-llm" class="primary-button">提交查询</button>
+                            <div id="loading-indicator" class="hidden">
+                                <div class="spinner"></div>
+                                <span>正在处理...</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div id="llm-results" class="hidden">
+                        <h3>处理结果</h3>
+                        <div class="result-section">
+                            <h4>模型回复</h4>
+                            <pre id="llm-response"></pre>
+                        </div>
+                        
+                        <div id="summary-section" class="result-section hidden">
+                            <h4>处理摘要</h4>
+                            <pre id="summary-content"></pre>
+                        </div>
+                        
+                        <div id="changes-section" class="result-section hidden">
+                            <h4>事件变更</h4>
+                            <pre id="changes-content"></pre>
+                        </div>
+                        
+                        <div id="events-section" class="result-section hidden">
+                            <h4>当前所有事件</h4>
+                            <pre id="events-content"></pre>
+                        </div>
+                        
+                        <div id="error-section" class="result-section hidden">
+                            <h4>错误信息</h4>
+                            <pre id="error-content"></pre>
+                        </div>
+                        
+                        <button id="new-query" class="secondary-button">新的查询</button>
+                    </div>
+                </div>
+            </div>
         </div>
         
         <div id="event-details" class="hidden">
@@ -433,6 +615,173 @@ button:hover {
     margin-bottom: 10px;
     border-radius: 4px;
     cursor: pointer;
+}
+
+/* LLM查询视图样式 */
+#llm-grid {
+    display: none;
+    background-color: white;
+    border-radius: 4px;
+    padding: 20px;
+    border: 1px solid #ddd;
+}
+
+#llm-grid.active {
+    display: block;
+}
+
+.llm-container {
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.llm-form {
+    margin-top: 20px;
+}
+
+.form-group {
+    margin-bottom: 20px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: bold;
+}
+
+.form-group textarea {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 14px;
+    resize: vertical;
+}
+
+.radio-group, .checkbox-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
+    margin-top: 5px;
+}
+
+.radio-group label, .checkbox-group label {
+    font-weight: normal;
+    margin-bottom: 0;
+    cursor: pointer;
+}
+
+select {
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    background-color: white;
+    min-width: 150px;
+}
+
+#end-date-container {
+    margin-top: 10px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+#end-date-container label {
+    margin-bottom: 0;
+}
+
+#end-date-container input[type="date"] {
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
+
+.form-actions {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    margin-top: 30px;
+}
+
+.primary-button {
+    padding: 10px 20px;
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 16px;
+    font-weight: bold;
+}
+
+.secondary-button {
+    padding: 10px 20px;
+    background-color: #f0f0f0;
+    color: #333;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 16px;
+}
+
+.primary-button:hover {
+    background-color: #45a049;
+}
+
+.secondary-button:hover {
+    background-color: #e0e0e0;
+}
+
+#loading-indicator {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.spinner {
+    width: 20px;
+    height: 20px;
+    border: 3px solid rgba(0, 0, 0, 0.1);
+    border-radius: 50%;
+    border-top-color: #4CAF50;
+    animation: spin 1s ease-in-out infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+#llm-results {
+    margin-top: 30px;
+    padding-top: 20px;
+    border-top: 1px solid #ddd;
+}
+
+.result-section {
+    margin-bottom: 20px;
+}
+
+.result-section h4 {
+    margin-bottom: 10px;
+    padding-bottom: 5px;
+    border-bottom: 1px solid #eee;
+}
+
+.result-section pre {
+    background-color: #f9f9f9;
+    padding: 15px;
+    border-radius: 4px;
+    overflow-x: auto;
+    white-space: pre-wrap;
+    font-family: monospace;
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+#error-section pre {
+    background-color: #fff0f0;
+    border-left: 3px solid #f44336;
 }
 
 /* 事件详情样式 */
@@ -1185,6 +1534,137 @@ function showEventDetails(event) {
     
     // 显示详情面板
     detailsContainer.classList.remove('hidden');
+}
+
+// LLM查询相关功能
+document.addEventListener('DOMContentLoaded', function() {
+    // 绑定LLM视图按钮
+    document.getElementById('llm-view').addEventListener('click', function() {
+        switchView('llm');
+    });
+    
+    // 重复设置下拉框变化事件
+    document.getElementById('recurrence').addEventListener('change', function() {
+        const endDateContainer = document.getElementById('end-date-container');
+        if (this.value) {
+            endDateContainer.classList.remove('hidden');
+        } else {
+            endDateContainer.classList.add('hidden');
+        }
+    });
+    
+    // 提交LLM查询
+    document.getElementById('submit-llm').addEventListener('click', submitLLMQuery);
+    
+    // 新的查询按钮
+    document.getElementById('new-query').addEventListener('click', function() {
+        document.querySelector('.llm-form').classList.remove('hidden');
+        document.getElementById('llm-results').classList.add('hidden');
+        document.getElementById('llm-prompt').value = '';
+    });
+});
+
+// 提交LLM查询
+function submitLLMQuery() {
+    // 获取用户输入
+    const prompt = document.getElementById('llm-prompt').value.trim();
+    if (!prompt) {
+        alert('请输入日程安排需求');
+        return;
+    }
+    
+    // 获取选项
+    const model = document.querySelector('input[name="model"]:checked').value;
+    const recurrence = document.getElementById('recurrence').value;
+    const endDate = document.getElementById('end-date').value;
+    const showSummary = document.getElementById('show-summary').checked;
+    const showChanges = document.getElementById('show-changes').checked;
+    const showEvents = document.getElementById('show-events').checked;
+    const showUnchanged = document.getElementById('show-unchanged').checked;
+    
+    // 显示加载指示器
+    document.getElementById('loading-indicator').classList.remove('hidden');
+    document.getElementById('submit-llm').disabled = true;
+    
+    // 准备请求数据
+    const requestData = {
+        prompt: prompt,
+        model: model,
+        recurrence: recurrence,
+        end_date: endDate,
+        show_summary: showSummary,
+        show_changes: showChanges,
+        show_events: showEvents,
+        show_unchanged: showUnchanged
+    };
+    
+    // 发送API请求
+    fetch('/api/llm-query', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(requestData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        // 隐藏加载指示器
+        document.getElementById('loading-indicator').classList.add('hidden');
+        document.getElementById('submit-llm').disabled = false;
+        
+        // 显示结果区域
+        document.querySelector('.llm-form').classList.add('hidden');
+        document.getElementById('llm-results').classList.remove('hidden');
+        
+        // 显示模型回复
+        document.getElementById('llm-response').textContent = data.response || '';
+        
+        // 显示处理摘要（如果有）
+        if (data.summary && showSummary) {
+            document.getElementById('summary-section').classList.remove('hidden');
+            document.getElementById('summary-content').textContent = data.summary;
+        } else {
+            document.getElementById('summary-section').classList.add('hidden');
+        }
+        
+        // 显示变更详情（如果有）
+        if (data.changes && showChanges) {
+            document.getElementById('changes-section').classList.remove('hidden');
+            document.getElementById('changes-content').textContent = data.changes;
+        } else {
+            document.getElementById('changes-section').classList.add('hidden');
+        }
+        
+        // 显示所有事件（如果需要）
+        if (data.events && showEvents) {
+            document.getElementById('events-section').classList.remove('hidden');
+            document.getElementById('events-content').textContent = data.events;
+        } else {
+            document.getElementById('events-section').classList.add('hidden');
+        }
+        
+        // 显示错误信息（如果有）
+        if (data.error) {
+            document.getElementById('error-section').classList.remove('hidden');
+            document.getElementById('error-content').textContent = data.error;
+        } else {
+            document.getElementById('error-section').classList.add('hidden');
+        }
+        
+        // 刷新事件数据
+        loadEvents();
+    })
+    .catch(error => {
+        // 隐藏加载指示器
+        document.getElementById('loading-indicator').classList.add('hidden');
+        document.getElementById('submit-llm').disabled = false;
+        
+        // 显示错误信息
+        document.getElementById('error-section').classList.remove('hidden');
+        document.getElementById('error-content').textContent = '请求失败: ' + error.message;
+        
+        console.error('LLM查询失败:', error);
+    });
 }
     '''
     

@@ -1017,7 +1017,7 @@ class TimetableProcessor:
                 
             return events
     
-    def format_events_with_changes(self, old_events=None, new_events=None, include_header=False, date_from=None, date_to=None, limit=None, offset=0):
+    def format_events_with_changes(self, old_events=None, new_events=None, include_header=False, date_from=None, date_to=None, limit=None, offset=0, show_unchanged=True):
         """
         Format events with visual indicators showing changes between old and new states.
         
@@ -1031,13 +1031,14 @@ class TimetableProcessor:
             date_to (str, optional): End date in format 'YYYY-MM-DD'
             limit (int, optional): Maximum number of events to return
             offset (int, optional): Number of events to skip
+            show_unchanged (bool): Whether to include unchanged events in the output
             
         Returns:
             str: Formatted string showing changes with visual indicators:
                 [+] for new events
                 [-] for deleted events
                 [*] for modified events
-                [ ] for unchanged events
+                [ ] for unchanged events (only if show_unchanged is True)
         """
         # 如果未提供事件列表，则根据过滤条件获取
         if old_events is None:
@@ -1092,8 +1093,9 @@ class TimetableProcessor:
                         f"    日期: {date}",
                     ]
                     event_lines.extend(f"    {change}" for change in changes)
-                else:
-                    # Event unchanged
+                    output.append("\n".join(event_lines))
+                elif show_unchanged:
+                    # Event unchanged, only show if show_unchanged is True
                     event_lines = [
                         f"[ ] 事项: {title}",
                         f"    日期: {date}",
@@ -1104,6 +1106,7 @@ class TimetableProcessor:
                         event_lines.append(f"    截止日期：{new_event['deadline']}")
                     if new_event.get('importance'):
                         event_lines.append(f"    重要程度：{new_event['importance']}")
+                    output.append("\n".join(event_lines))
             
             elif new_event:
                 # New event added
@@ -1117,6 +1120,7 @@ class TimetableProcessor:
                     event_lines.append(f"    截止日期：{new_event['deadline']}")
                 if new_event.get('importance'):
                     event_lines.append(f"    重要程度：{new_event['importance']}")
+                output.append("\n".join(event_lines))
             
             else:
                 # Event was deleted
@@ -1130,8 +1134,7 @@ class TimetableProcessor:
                     event_lines.append(f"    截止日期：{old_event['deadline']}")
                 if old_event.get('importance'):
                     event_lines.append(f"    重要程度：{old_event['importance']}")
-            
-            output.append("\n".join(event_lines))
+                output.append("\n".join(event_lines))
         
         return "\n\n".join(output)
 
