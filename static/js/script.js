@@ -711,6 +711,12 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
     
+    // 确保加载指示器初始状态为隐藏
+    const loadingIndicator = document.getElementById('loading-indicator');
+    if (loadingIndicator) {
+        loadingIndicator.classList.add('hidden');
+    }
+    
     // 提交LLM查询
     document.getElementById('submit-llm').addEventListener('click', submitLLMQuery);
     
