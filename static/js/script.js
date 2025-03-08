@@ -4,6 +4,16 @@ let currentDate = new Date();
 let currentView = 'month'; // 当前视图类型：month, week, day, list
 let events = [];
 
+// 用于跟踪正在处理的事件ID
+let processingEvents = new Set();
+// 用于跟踪已处理完成的事件ID，防止重复处理
+let completedEvents = new Set();
+
+// 用于跟踪加载状态
+let isLoadingEvents = false;
+let loadEventsRetryCount = 0;
+const MAX_RETRY_COUNT = 3;
+
 // DOM加载完成后执行
 document.addEventListener('DOMContentLoaded', function() {
     console.log("DOM加载完成");
@@ -132,9 +142,40 @@ function updateDateDisplay() {
 }
 
 // 加载事件数据
-function loadEvents() {
+function loadEvents(retry = false) {
+    // 如果已经在加载中，则忽略请求（除非是重试）
+    if (isLoadingEvents && !retry) {
+        console.log("事件数据正在加载中，忽略重复请求");
+        return;
+    }
+    
+    // 设置加载状态
+    isLoadingEvents = true;
+    
+    // 如果是重试，则增加重试计数
+    if (retry) {
+        loadEventsRetryCount++;
+        console.log(`重试加载事件数据，第 ${loadEventsRetryCount} 次尝试`);
+        if (loadEventsRetryCount > MAX_RETRY_COUNT) {
+            console.error(`已达到最大重试次数 ${MAX_RETRY_COUNT}，停止重试`);
+            isLoadingEvents = false;
+            loadEventsRetryCount = 0;
+            hideLoadingIndicator();
+            showNotification('加载事件数据失败，已达到最大重试次数', 'error');
+            return;
+        }
+    } else {
+        // 如果不是重试，则重置重试计数
+        loadEventsRetryCount = 0;
+    }
+    
+    console.log("开始加载事件数据");
+    
     // 关闭事件详情弹窗
     document.getElementById('event-details').classList.add('hidden');
+    
+    // 显示加载指示器
+    showLoadingIndicator();
     
     let dateFrom, dateTo;
     
@@ -177,6 +218,7 @@ function loadEvents() {
             break;
             
         case 'list':
+        case 'completed':
             // 默认显示当前月
             const firstDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
             // 获取前一天的日期，以包含可能的跨天事件
@@ -191,17 +233,87 @@ function loadEvents() {
     
     // 构建API URL
     let apiUrl = `/api/events?date_from=${dateFrom}&date_to=${dateTo}`;
+    console.log(`加载事件数据，API URL: ${apiUrl}`);
+    
+    // 设置请求超时
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10秒超时
     
     // 获取事件数据
-    fetch(apiUrl)
-        .then(response => response.json())
+    fetch(apiUrl, { signal: controller.signal })
+        .then(response => {
+            // 清除超时
+            clearTimeout(timeoutId);
+            
+            console.log(`事件数据请求已发送，状态码: ${response.status}`);
+            if (!response.ok) {
+                throw new Error(`服务器响应错误: ${response.status}`);
+            }
+            return response.json();
+        })
         .then(data => {
+            console.log(`事件数据已加载，共 ${data.length} 个事件`);
             events = data;
             renderCurrentView();
+            
+            // 加载已完成事件视图（如果需要）
+            if (currentView === 'completed') {
+                renderCompletedView();
+            }
+            
+            // 隐藏加载指示器
+            hideLoadingIndicator();
+            
+            // 重置加载状态和重试计数
+            isLoadingEvents = false;
+            loadEventsRetryCount = 0;
         })
         .catch(error => {
-            console.error('Error loading events:', error);
+            console.error('加载事件数据出错:', error);
+            
+            // 如果是超时或网络错误，则尝试重试
+            if (error.name === 'AbortError' || error.message.includes('network') || error.message.includes('failed')) {
+                console.log('网络错误或超时，将尝试重试');
+                // 延迟一段时间后重试
+                setTimeout(() => {
+                    loadEvents(true);
+                }, 1000); // 1秒后重试
+            } else {
+                // 其他错误，重置加载状态
+                isLoadingEvents = false;
+                loadEventsRetryCount = 0;
+                
+                // 隐藏加载指示器
+                hideLoadingIndicator();
+                
+                // 显示错误通知
+                showNotification('加载事件数据失败: ' + error.message, 'error');
+            }
         });
+}
+
+// 显示加载指示器
+function showLoadingIndicator() {
+    // 创建加载指示器元素（如果不存在）
+    let loadingIndicator = document.getElementById('global-loading-indicator');
+    if (!loadingIndicator) {
+        loadingIndicator = document.createElement('div');
+        loadingIndicator.id = 'global-loading-indicator';
+        loadingIndicator.className = 'loading-indicator';
+        loadingIndicator.innerHTML = '<div class="spinner"></div>';
+        document.body.appendChild(loadingIndicator);
+    }
+    
+    // 显示加载指示器
+    loadingIndicator.style.display = 'flex';
+}
+
+// 隐藏加载指示器
+function hideLoadingIndicator() {
+    const loadingIndicator = document.getElementById('global-loading-indicator');
+    if (loadingIndicator) {
+        loadingIndicator.style.display = 'none';
+    }
 }
 
 // 格式化日期为YYYY-MM-DD
@@ -413,7 +525,7 @@ function renderMonthView() {
 // 渲染事件项
 function renderEventItem(event, container, options = {}) {
     const eventItem = document.createElement('div');
-    const isCompleted = event.is_completed === true;
+    const isCompleted = event.is_completed === true || event.source === 'completed_task';
     
     // 设置事件项的类名
     eventItem.className = `event-item type-${event.event_type.toLowerCase().replace(/\s+\(已完成\)$/, '')}`;
@@ -432,8 +544,21 @@ function renderEventItem(event, container, options = {}) {
         eventItem.textContent = event.title;
     }
     
-    // 设置事件ID
+    // 设置事件ID和日期（用于处理周期性事件）
     eventItem.dataset.eventId = event.id;
+    eventItem.dataset.date = event.date;
+    
+    // 检查是否为周期性事件
+    const isRecurring = event.recurrence_rule && event.recurrence_rule.trim() !== '';
+    if (isRecurring) {
+        eventItem.dataset.recurring = 'true';
+        // 为周期性事件添加特殊标记
+        const recurIcon = document.createElement('span');
+        recurIcon.className = 'recur-icon';
+        recurIcon.textContent = '🔄';
+        recurIcon.title = '周期性事件';
+        eventItem.appendChild(recurIcon);
+    }
     
     // 添加点击事件显示详情
     eventItem.addEventListener('click', function() {
@@ -452,7 +577,31 @@ function renderEventItem(event, container, options = {}) {
             // 阻止事件冒泡，避免点击按钮时触发事件详情
             deleteButton.addEventListener('click', function(e) {
                 e.stopPropagation();
-                // 直接调用删除函数，不显示确认对话框
+                // 检查事件是否已经处理完成
+                if (completedEvents.has(event.id)) {
+                    console.log(`事件 ${event.id} 已经处理完成，忽略删除请求`);
+                    return;
+                }
+                
+                // 显示一次确认对话框
+                if (!confirm('确定要删除这个已完成的任务吗？')) {
+                    return;
+                }
+                
+                // 将事件ID添加到已处理完成集合中，防止重复处理
+                completedEvents.add(event.id);
+                
+                // 立即禁用按钮，防止重复点击
+                deleteButton.disabled = true;
+                deleteButton.textContent = '...';
+                
+                // 立即从界面上移除该事件（视觉反馈）
+                eventItem.style.opacity = '0.3';
+                eventItem.style.pointerEvents = 'none';
+                eventItem.style.transition = 'all 0.5s ease';
+                eventItem.style.transform = 'translateX(100%)';
+                
+                // 删除事件
                 deleteCompletedTask(event.id);
             });
             
@@ -467,6 +616,14 @@ function renderEventItem(event, container, options = {}) {
             // 阻止事件冒泡，避免点击按钮时触发事件详情
             completeButton.addEventListener('click', function(e) {
                 e.stopPropagation();
+                
+                // 检查事件是否已经处理完成
+                if (completedEvents.has(event.id)) {
+                    console.log(`事件 ${event.id} 已经处理完成，忽略请求`);
+                    return;
+                }
+                
+                // 调用标记为已完成函数
                 markEventCompleted(event.id, true);
             });
             
@@ -1008,31 +1165,78 @@ function showEventDetails(event) {
 
 // 删除已完成任务
 function deleteCompletedTask(taskId) {
-    // 显示一次确认对话框
-    if (!confirm('确定要删除这个已完成的任务吗？')) {
+    // 如果该任务正在处理中，则忽略请求
+    if (processingEvents.has(taskId)) {
+        console.log(`事件 ${taskId} 正在处理中，忽略删除请求`);
         return;
     }
+    
+    // 将任务ID添加到处理集合中
+    processingEvents.add(taskId);
+    console.log(`开始处理事件 ${taskId} 的删除操作`);
+    
+    // 立即从界面上移除该事件（视觉反馈）
+    const eventElements = document.querySelectorAll(`.event-item[data-event-id="${taskId}"]`);
+    eventElements.forEach(element => {
+        element.style.opacity = '0.3';
+        element.style.pointerEvents = 'none';
+        element.style.transition = 'all 0.5s ease';
+        element.style.transform = 'translateX(100%)';
+        
+        // 禁用所有按钮
+        const buttons = element.querySelectorAll('button');
+        buttons.forEach(button => {
+            button.disabled = true;
+            button.textContent = '...';
+        });
+        
+        // 500ms后完全移除事件元素
+        setTimeout(() => {
+            if (element.parentNode) {
+                element.parentNode.removeChild(element);
+            }
+        }, 500);
+    });
+    
+    // 关闭详情面板
+    document.getElementById('event-details').classList.add('hidden');
     
     fetch(`/api/completed-tasks/${taskId}`, {
         method: 'DELETE'
     })
-    .then(response => response.json())
+    .then(response => {
+        console.log(`事件 ${taskId} 的删除请求已发送，状态码: ${response.status}`);
+        return response.json();
+    })
     .then(data => {
+        // 从处理集合中移除任务ID
+        processingEvents.delete(taskId);
+        console.log(`事件 ${taskId} 的删除操作已完成，结果: ${data.status}`);
+        
         if (data.status === 'success') {
-            // 关闭详情面板
-            document.getElementById('event-details').classList.add('hidden');
-            // 重新加载事件
-            loadEvents();
-            // 刷新已完成任务列表
-            renderCompletedView();
             // 显示成功消息
             showNotification('任务已成功删除');
+            
+            // 延迟一段时间后重新加载事件，确保后端处理完成
+            setTimeout(() => {
+                // 重新加载事件
+                loadEvents();
+                // 刷新已完成任务列表
+                renderCompletedView();
+            }, 500);
         } else {
+            // 处理失败，从已处理完成集合中移除事件ID
+            completedEvents.delete(taskId);
             alert('删除任务失败: ' + data.message);
         }
     })
     .catch(error => {
-        console.error('Error:', error);
+        // 从处理集合中移除任务ID
+        processingEvents.delete(taskId);
+        // 处理失败，从已处理完成集合中移除事件ID
+        completedEvents.delete(taskId);
+        
+        console.error(`事件 ${taskId} 删除出错:`, error);
         alert('删除任务时发生错误');
     });
 }
@@ -1063,31 +1267,136 @@ function showNotification(message, type = 'success') {
 
 // 标记事件为已完成或未完成
 function markEventCompleted(eventId, completed) {
+    // 如果该事件已经处理完成，则忽略请求
+    if (completedEvents.has(eventId)) {
+        console.log(`事件 ${eventId} 已经处理完成，忽略重复请求`);
+        return;
+    }
+    
+    // 如果该事件正在处理中，则忽略请求
+    if (processingEvents.has(eventId)) {
+        console.log(`事件 ${eventId} 正在处理中，忽略重复请求`);
+        return;
+    }
+    
+    // 将事件ID添加到处理集合中
+    processingEvents.add(eventId);
+    console.log(`开始处理事件 ${eventId} 的完成状态变更`);
+    
+    // 立即从界面上标记该事件（视觉反馈）
+    const eventElements = document.querySelectorAll(`.event-item[data-event-id="${eventId}"]`);
+    eventElements.forEach(element => {
+        // 获取日期，用于区分周期性事件的特定实例
+        const eventDate = element.dataset.date;
+        
+        // 如果是今天标记为已完成的事件，则添加特殊效果
+        element.classList.add('completing');
+        element.style.opacity = '0.3';
+        element.style.pointerEvents = 'none';
+        element.style.transition = 'all 0.5s ease';
+        element.style.transform = 'translateX(100%)';
+        
+        // 禁用所有按钮
+        const buttons = element.querySelectorAll('button');
+        buttons.forEach(button => {
+            button.disabled = true;
+            button.textContent = '...';
+        });
+        
+        // 500ms后完全移除事件元素
+        setTimeout(() => {
+            if (element.parentNode) {
+                element.parentNode.removeChild(element);
+            }
+        }, 500);
+    });
+    
+    // 关闭详情面板
+    document.getElementById('event-details').classList.add('hidden');
+    
+    // 将事件ID添加到已处理完成集合中，防止重复处理
+    completedEvents.add(eventId);
+    
+    // 添加当前日期信息到请求中，用于处理周期性事件
+    const currentDateStr = formatDate(new Date());
+    const eventDate = document.querySelector(`.event-item[data-event-id="${eventId}"]`)?.dataset.date || currentDateStr;
+    
     fetch(`/api/events/${eventId}/complete`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ completed: completed })
+        body: JSON.stringify({ 
+            completed: completed,
+            date: eventDate // 添加日期信息
+        })
     })
-    .then(response => response.json())
+    .then(response => {
+        console.log(`事件 ${eventId} 的请求已发送，状态码: ${response.status}`);
+        return response.json();
+    })
     .then(data => {
+        // 从处理集合中移除事件ID
+        processingEvents.delete(eventId);
+        console.log(`事件 ${eventId} 的处理已完成，结果: ${data.status}`);
+        
         if (data.status === 'success') {
-            // 关闭详情面板
-            document.getElementById('event-details').classList.add('hidden');
-            // 重新加载事件
-            loadEvents();
-            // 刷新已完成任务列表
-            renderCompletedView();
             // 显示成功消息
             showNotification('事件已标记为已完成');
+            
+            // 延迟一段时间后重新加载事件，确保后端处理完成
+            setTimeout(() => {
+                // 重新加载事件
+                loadEvents();
+                // 刷新已完成任务列表
+                renderCompletedView();
+            }, 700);
         } else {
+            // 处理失败，从已处理完成集合中移除事件ID
+            completedEvents.delete(eventId);
             alert('更新事件状态失败: ' + data.message);
+            
+            // 恢复界面上的事件元素
+            const eventElements = document.querySelectorAll(`.event-item.completing`);
+            eventElements.forEach(element => {
+                element.classList.remove('completing');
+                element.style.opacity = '1';
+                element.style.pointerEvents = 'auto';
+                element.style.transform = 'translateX(0)';
+                
+                // 恢复按钮状态
+                const completeButton = element.querySelector('.complete-button');
+                if (completeButton) {
+                    completeButton.disabled = false;
+                    completeButton.textContent = '○';
+                }
+            });
         }
     })
     .catch(error => {
-        console.error('Error:', error);
+        // 从处理集合中移除事件ID
+        processingEvents.delete(eventId);
+        // 处理失败，从已处理完成集合中移除事件ID
+        completedEvents.delete(eventId);
+        
+        console.error(`事件 ${eventId} 处理出错:`, error);
         alert('更新事件状态时发生错误');
+        
+        // 恢复界面上的事件元素
+        const eventElements = document.querySelectorAll(`.event-item.completing`);
+        eventElements.forEach(element => {
+            element.classList.remove('completing');
+            element.style.opacity = '1';
+            element.style.pointerEvents = 'auto';
+            element.style.transform = 'translateX(0)';
+            
+            // 恢复按钮状态
+            const completeButton = element.querySelector('.complete-button');
+            if (completeButton) {
+                completeButton.disabled = false;
+                completeButton.textContent = '○';
+            }
+        });
     });
 }
 
