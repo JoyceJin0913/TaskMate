@@ -442,6 +442,7 @@ def create_templates():
             <button id="day-view">日视图</button>
             <button id="list-view">列表视图</button>
             <button id="completed-view">已完成</button>
+            <button id="time-review-view">时间复盘</button>
             <button id="llm-view">LLM查询</button>
         </div>
         
@@ -461,6 +462,9 @@ def create_templates():
             
             <!-- 已完成视图 -->
             <div id="completed-grid" class="view"></div>
+            
+            <!-- 时间复盘视图 -->
+            <div id="time-review-grid" class="view"></div>
             
             <!-- LLM查询视图 -->
             <div id="llm-grid" class="view">
@@ -1544,6 +1548,101 @@ input[type="time"]:focus {
     gap: 10px;
     margin-top: 20px;
 }
+
+/* 时间复盘视图样式 */
+#time-review-grid {
+    padding: 20px;
+    background-color: white;
+    border-radius: 4px;
+    border: 1px solid #ddd;
+}
+
+.time-review-header {
+    margin-bottom: 20px;
+    color: #333;
+    font-size: 20px;
+    font-weight: bold;
+    text-align: center;
+}
+
+.time-review-day {
+    margin-bottom: 30px;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 20px;
+}
+
+.time-review-day-header {
+    margin-bottom: 15px;
+    padding: 10px;
+    background-color: #f5f5f5;
+    border-radius: 4px;
+    font-weight: bold;
+    color: #333;
+    font-size: 16px;
+}
+
+.time-review-events {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.time-review-event {
+    display: flex;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.time-review-event-title {
+    flex: 1;
+    padding: 10px;
+    background-color: #f9f9f9;
+    font-weight: bold;
+    border-right: 1px solid #ddd;
+}
+
+.time-review-event-times {
+    display: flex;
+    flex: 2;
+}
+
+.time-review-planned-time, 
+.time-review-actual-time {
+    flex: 1;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+.time-review-planned-time {
+    background-color: #e8f5e9;
+    border-right: 1px solid #ddd;
+}
+
+.time-review-actual-time {
+    background-color: #e3f2fd;
+}
+
+.time-review-time-label {
+    font-size: 12px;
+    color: #666;
+    margin-bottom: 5px;
+}
+
+.time-review-time-value {
+    font-weight: bold;
+    color: #333;
+}
+
+.time-review-empty {
+    text-align: center;
+    padding: 30px;
+    color: #666;
+    font-style: italic;
+}
     '''
     
     with open('static/css/style.css', 'w', encoding='utf-8') as f:
@@ -1597,6 +1696,15 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('completed-view').addEventListener('click', function() {
         switchView('completed');
         renderCompletedView();
+    });
+    
+    document.getElementById('time-review-view').addEventListener('click', function() {
+        switchView('time-review');
+        renderTimeReviewView();
+    });
+    
+    document.getElementById('llm-view').addEventListener('click', function() {
+        switchView('llm');
     });
     
     // 绑定日期导航按钮
@@ -1708,6 +1816,8 @@ function switchView(viewType) {
     // 根据视图类型加载事件
     if (viewType === 'completed') {
         renderCompletedView();
+    } else if (viewType === 'time-review') {
+        renderTimeReviewView();
     } else if (viewType !== 'llm') {
         loadEvents();
     }
@@ -2050,10 +2160,18 @@ function renderCurrentView() {
         case 'list':
             renderListView();
             break;
+        case 'completed':
+            renderCompletedView();
+            break;
+        case 'time-review':
+            renderTimeReviewView();
+            break;
     }
     
     // 添加当前时间指示线
-    addCurrentTimeIndicator();
+    if (currentView === 'week' || currentView === 'day') {
+        addCurrentTimeIndicator();
+    }
 }
 
 // 渲染月视图
@@ -3346,6 +3464,138 @@ function isValidTimeRange(timeRange) {
     const startMinutes = startHour * 60 + startMin;
     const endMinutes = endHour * 60 + endMin;
     return startMinutes < endMinutes;
+}
+
+// 渲染时间复盘视图
+function renderTimeReviewView() {
+    const timeReviewGrid = document.getElementById('time-review-grid');
+    timeReviewGrid.innerHTML = ''; // 清空内容
+    
+    // 创建标题
+    const header = document.createElement('h2');
+    header.className = 'time-review-header';
+    header.textContent = '时间复盘';
+    timeReviewGrid.appendChild(header);
+    
+    // 加载已完成事件
+    fetch('/api/events/completed')
+        .then(response => response.json())
+        .then(completedEvents => {
+            // 过滤出有实际时间范围的事件
+            const eventsWithActualTime = completedEvents.filter(event => event.actual_time_range);
+            
+            if (eventsWithActualTime.length === 0) {
+                const emptyMessage = document.createElement('p');
+                emptyMessage.className = 'time-review-empty';
+                emptyMessage.textContent = '暂无带有实际时间记录的已完成任务';
+                timeReviewGrid.appendChild(emptyMessage);
+                return;
+            }
+            
+            // 按日期分组
+            const eventsByDate = {};
+            eventsWithActualTime.forEach(event => {
+                if (!eventsByDate[event.date]) {
+                    eventsByDate[event.date] = [];
+                }
+                eventsByDate[event.date].push(event);
+            });
+            
+            // 按日期排序（降序）
+            const sortedDates = Object.keys(eventsByDate).sort().reverse();
+            
+            // 创建日期分组列表
+            sortedDates.forEach(date => {
+                const dayGroup = document.createElement('div');
+                dayGroup.className = 'time-review-day';
+                
+                // 创建日期标题
+                const dateHeader = document.createElement('div');
+                dateHeader.className = 'time-review-day-header';
+                const dateObj = new Date(date);
+                dateHeader.textContent = `${date} ${['周日', '周一', '周二', '周三', '周四', '周五', '周六'][dateObj.getDay()]}`;
+                dayGroup.appendChild(dateHeader);
+                
+                // 创建事件列表
+                const eventsList = document.createElement('div');
+                eventsList.className = 'time-review-events';
+                
+                // 按时间排序
+                eventsByDate[date].sort((a, b) => {
+                    // 提取开始时间
+                    const getStartTime = (timeRange) => {
+                        const parts = timeRange.split('-');
+                        return parts[0].trim();
+                    };
+                    
+                    const aStart = getStartTime(a.time_range);
+                    const bStart = getStartTime(b.time_range);
+                    
+                    return aStart.localeCompare(bStart);
+                });
+                
+                // 添加事件
+                eventsByDate[date].forEach(event => {
+                    const eventItem = document.createElement('div');
+                    eventItem.className = 'time-review-event';
+                    
+                    // 事件标题
+                    const titleDiv = document.createElement('div');
+                    titleDiv.className = 'time-review-event-title';
+                    titleDiv.textContent = event.title;
+                    eventItem.appendChild(titleDiv);
+                    
+                    // 时间对比区域
+                    const timesDiv = document.createElement('div');
+                    timesDiv.className = 'time-review-event-times';
+                    
+                    // 计划时间
+                    const plannedTimeDiv = document.createElement('div');
+                    plannedTimeDiv.className = 'time-review-planned-time';
+                    
+                    const plannedLabel = document.createElement('div');
+                    plannedLabel.className = 'time-review-time-label';
+                    plannedLabel.textContent = '计划时间';
+                    plannedTimeDiv.appendChild(plannedLabel);
+                    
+                    const plannedValue = document.createElement('div');
+                    plannedValue.className = 'time-review-time-value';
+                    plannedValue.textContent = event.time_range;
+                    plannedTimeDiv.appendChild(plannedValue);
+                    
+                    timesDiv.appendChild(plannedTimeDiv);
+                    
+                    // 实际时间
+                    const actualTimeDiv = document.createElement('div');
+                    actualTimeDiv.className = 'time-review-actual-time';
+                    
+                    const actualLabel = document.createElement('div');
+                    actualLabel.className = 'time-review-time-label';
+                    actualLabel.textContent = '实际时间';
+                    actualTimeDiv.appendChild(actualLabel);
+                    
+                    const actualValue = document.createElement('div');
+                    actualValue.className = 'time-review-time-value';
+                    actualValue.textContent = event.actual_time_range;
+                    actualTimeDiv.appendChild(actualValue);
+                    
+                    timesDiv.appendChild(actualTimeDiv);
+                    
+                    eventItem.appendChild(timesDiv);
+                    eventsList.appendChild(eventItem);
+                });
+                
+                dayGroup.appendChild(eventsList);
+                timeReviewGrid.appendChild(dayGroup);
+            });
+        })
+        .catch(error => {
+            console.error('Error loading completed events with actual time:', error);
+            const errorMessage = document.createElement('p');
+            errorMessage.className = 'error-message';
+            errorMessage.textContent = '加载时间复盘数据时发生错误';
+            timeReviewGrid.appendChild(errorMessage);
+        });
 }
     '''
     
