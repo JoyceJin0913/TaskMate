@@ -69,7 +69,7 @@ def llm_query():
         show_changes = data.get('show_changes', True)
         show_events = data.get('show_events', False)
         show_unchanged = data.get('show_unchanged', False)
-        limit = data.get('limit', 20)
+        limit = data.get('limit', 50)
         
         # 获取当前事件列表
         current_events = timetable_processor.format_events_as_llm_output(include_header=False, limit=limit)
@@ -85,7 +85,8 @@ def llm_query():
         
         # 获取修改前的所有事件（如果需要显示变更）
         if show_changes:
-            old_events = timetable_processor.get_all_events(limit=limit)
+            # 获取所有事件，不受limit限制，确保能够正确比较变更
+            old_events = timetable_processor.get_all_events(limit=None)
         
         # 处理事件并更新数据库
         try:
@@ -101,18 +102,39 @@ def llm_query():
                 # 否则使用普通的 process_events 方法
                 summary = timetable_processor.process_events(response)
             
-            # 添加处理摘要到结果
+            # 添加处理摘要到结果，将字典转换为格式化的字符串
             if show_summary:
-                result['summary'] = summary
+                summary_str = "处理摘要：\n"
+                summary_str += f"新增事件: {summary['added']}\n"
+                summary_str += f"修改事件: {summary['modified']}\n"
+                summary_str += f"删除事件: {summary['deleted']}\n"
+                summary_str += f"未变化事件: {summary['unchanged']}\n"
+                summary_str += f"跳过事件: {summary['skipped']}\n"
+                
+                if summary['errors']:
+                    summary_str += "\n错误信息:\n"
+                    for i, error in enumerate(summary['errors']):
+                        summary_str += f"{i+1}. {error}\n"
+                
+                if summary['warnings']:
+                    summary_str += "\n警告信息:\n"
+                    for i, warning in enumerate(summary['warnings']):
+                        summary_str += f"{i+1}. {warning}\n"
+                
+                result['summary'] = summary_str
             
             # 添加变更详情到结果
             if show_changes:
-                new_events = timetable_processor.get_all_events(limit=limit)
+                # 获取所有事件，不受limit限制，确保能够正确比较变更
+                new_events = timetable_processor.get_all_events(limit=None)
+                
+                # 获取变更详情，但在显示时可以应用limit
                 changes = timetable_processor.format_events_with_changes(
                     old_events, 
                     new_events, 
                     include_header=True, 
-                    show_unchanged=show_unchanged
+                    show_unchanged=show_unchanged,
+                    limit=limit  # 只在显示时应用limit
                 )
                 result['changes'] = changes
             
@@ -220,8 +242,11 @@ def create_templates():
                         <div class="form-group">
                             <label>选择模型：</label>
                             <div class="radio-group">
-                                <input type="radio" id="model-deepseek" name="model" value="deepseek-chat" checked>
-                                <label for="model-deepseek">DeepSeek Chat</label>
+                                <input type="radio" id="model-deepseek-chat" name="model" value="deepseek-chat" checked>
+                                <label for="model-deepseek-chat">DeepSeek V3</label>
+
+                                <input type="radio" id="model-deepseek-reasoner" name="model" value="deepseek-reasoner" checked>
+                                <label for="model-deepseek-reasoner">DeepSeek R1 (Slow)</label>
                                 
                                 <input type="radio" id="model-gpt4" name="model" value="gpt-4o">
                                 <label for="model-gpt4">GPT-4o</label>

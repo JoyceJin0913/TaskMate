@@ -1062,6 +1062,10 @@ class TimetableProcessor:
         # Sort keys by date and title
         sorted_keys = sorted(all_keys, key=lambda x: (x[1], x[0]))
         
+        # 创建变更事件列表，优先显示有变化的事件
+        changed_events = []
+        unchanged_events = []
+        
         for title, date in sorted_keys:
             old_event = old_events_dict.get((title, date))
             new_event = new_events_dict.get((title, date))
@@ -1093,7 +1097,7 @@ class TimetableProcessor:
                         f"    日期: {date}",
                     ]
                     event_lines.extend(f"    {change}" for change in changes)
-                    output.append("\n".join(event_lines))
+                    changed_events.append("\n".join(event_lines))
                 elif show_unchanged:
                     # Event unchanged, only show if show_unchanged is True
                     event_lines = [
@@ -1106,7 +1110,7 @@ class TimetableProcessor:
                         event_lines.append(f"    截止日期：{new_event['deadline']}")
                     if new_event.get('importance'):
                         event_lines.append(f"    重要程度：{new_event['importance']}")
-                    output.append("\n".join(event_lines))
+                    unchanged_events.append("\n".join(event_lines))
             
             elif new_event:
                 # New event added
@@ -1120,7 +1124,7 @@ class TimetableProcessor:
                     event_lines.append(f"    截止日期：{new_event['deadline']}")
                 if new_event.get('importance'):
                     event_lines.append(f"    重要程度：{new_event['importance']}")
-                output.append("\n".join(event_lines))
+                changed_events.append("\n".join(event_lines))
             
             else:
                 # Event was deleted
@@ -1134,7 +1138,17 @@ class TimetableProcessor:
                     event_lines.append(f"    截止日期：{old_event['deadline']}")
                 if old_event.get('importance'):
                     event_lines.append(f"    重要程度：{old_event['importance']}")
-                output.append("\n".join(event_lines))
+                changed_events.append("\n".join(event_lines))
+        
+        # 合并变更和未变更事件，优先显示变更事件
+        all_formatted_events = changed_events + unchanged_events
+        
+        # 应用 limit 参数
+        if limit is not None and limit > 0:
+            all_formatted_events = all_formatted_events[:limit]
+        
+        # 添加格式化的事件到输出
+        output.extend(all_formatted_events)
         
         return "\n\n".join(output)
 
