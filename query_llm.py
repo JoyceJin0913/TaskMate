@@ -6,7 +6,7 @@ import argparse
 from query_api import query_api
 from schedule_parser import TimetableProcessor
 
-def main():
+def query_llm():
     """
     主函数：提示用户输入待办事项，查询LLM，处理事件并更新数据库
     """
@@ -103,4 +103,4 @@ def main():
         return
 
 if __name__ == "__main__":
-    main()
+    query_llm()
