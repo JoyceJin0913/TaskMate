@@ -154,13 +154,13 @@ def create_templates():
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>日程表可视化</title>
+    <title>TaskMate</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
     <div class="container">
         <header>
-            <h1>日程表可视化</h1>
+            <h1>TaskMate</h1>
             <div class="date-controls">
                 <!-- 月视图导航 -->
                 <div id="month-navigation" class="navigation-controls active">
@@ -939,6 +939,9 @@ function switchView(viewType) {
         document.getElementById(viewType + '-navigation').classList.add('active');
     }
     
+    // 关闭事件详情弹窗
+    document.getElementById('event-details').classList.add('hidden');
+    
     // 更新日期显示
     updateDateDisplay();
     
@@ -973,6 +976,9 @@ function updateDateDisplay() {
 
 // 加载事件数据
 function loadEvents() {
+    // 关闭事件详情弹窗
+    document.getElementById('event-details').classList.add('hidden');
+    
     let dateFrom, dateTo;
     
     // 根据当前视图类型确定日期范围
@@ -1035,6 +1041,8 @@ function formatDate(date) {
 // 上个月
 function previousMonth() {
     currentDate = new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1);
+    // 关闭事件详情弹窗
+    document.getElementById('event-details').classList.add('hidden');
     updateDateDisplay();
     loadEvents();
 }
@@ -1042,6 +1050,8 @@ function previousMonth() {
 // 下个月
 function nextMonth() {
     currentDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1);
+    // 关闭事件详情弹窗
+    document.getElementById('event-details').classList.add('hidden');
     updateDateDisplay();
     loadEvents();
 }
@@ -1049,6 +1059,8 @@ function nextMonth() {
 // 上一周
 function previousWeek() {
     currentDate.setDate(currentDate.getDate() - 7);
+    // 关闭事件详情弹窗
+    document.getElementById('event-details').classList.add('hidden');
     updateDateDisplay();
     loadEvents();
 }
@@ -1056,6 +1068,8 @@ function previousWeek() {
 // 下一周
 function nextWeek() {
     currentDate.setDate(currentDate.getDate() + 7);
+    // 关闭事件详情弹窗
+    document.getElementById('event-details').classList.add('hidden');
     updateDateDisplay();
     loadEvents();
 }
@@ -1063,6 +1077,8 @@ function nextWeek() {
 // 前一天
 function previousDay() {
     currentDate.setDate(currentDate.getDate() - 1);
+    // 关闭事件详情弹窗
+    document.getElementById('event-details').classList.add('hidden');
     updateDateDisplay();
     loadEvents();
 }
@@ -1070,6 +1086,8 @@ function previousDay() {
 // 后一天
 function nextDay() {
     currentDate.setDate(currentDate.getDate() + 1);
+    // 关闭事件详情弹窗
+    document.getElementById('event-details').classList.add('hidden');
     updateDateDisplay();
     loadEvents();
 }
