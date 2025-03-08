@@ -2138,6 +2138,14 @@ function formatDate(date) {
     return `${year}-${month}-${day}`;
 }
 
+// 解析YYYY-MM-DD格式的日期字符串为Date对象，确保正确处理时区
+function parseDate(dateString) {
+    // 将YYYY-MM-DD格式的日期字符串拆分为年、月、日
+    const [year, month, day] = dateString.split('-').map(Number);
+    // 创建本地日期对象（月份从0开始，所以要减1）
+    return new Date(year, month - 1, day);
+}
+
 // 上个月
 function previousMonth() {
     currentDate = new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1);
@@ -2865,7 +2873,7 @@ function renderListView() {
         
         // 创建日期标题
         const dateHeader = document.createElement('h3');
-        const dateObj = new Date(date);
+        const dateObj = parseDate(date);
         dateHeader.textContent = `${date} ${['周日', '周一', '周二', '周三', '周四', '周五', '周六'][dateObj.getDay()]}`;
         dateGroup.appendChild(dateHeader);
         
@@ -3399,7 +3407,7 @@ function renderCompletedView() {
                 
                 // 创建日期标题
                 const dateHeader = document.createElement('h3');
-                const dateObj = new Date(date);
+                const dateObj = parseDate(date);
                 dateHeader.textContent = `${date} ${['周日', '周一', '周二', '周三', '周四', '周五', '周六'][dateObj.getDay()]}`;
                 dateGroup.appendChild(dateHeader);
                 
@@ -3622,7 +3630,7 @@ function renderTimeReviewView() {
                 // 创建日期标题
                 const dateHeader = document.createElement('div');
                 dateHeader.className = 'time-review-day-header';
-                const dateObj = new Date(date);
+                const dateObj = parseDate(date);
                 dateHeader.textContent = `${date} ${['周日', '周一', '周二', '周三', '周四', '周五', '周六'][dateObj.getDay()]}`;
                 dayGroup.appendChild(dateHeader);
                 
