@@ -1898,43 +1898,138 @@ function renderTimeReviewView() {
                     const contentDiv = document.createElement('div');
                     contentDiv.className = 'time-review-event-content';
                     
-                    // 时间对比区域
-                    const timesDiv = document.createElement('div');
-                    timesDiv.className = 'time-review-event-times';
+                    // 解析时间范围
+                    const parseTimeRange = (timeRange) => {
+                        const [start, end] = timeRange.split('-').map(t => t.trim());
+                        const [startHour, startMin] = start.split(':').map(Number);
+                        const [endHour, endMin] = end.split(':').map(Number);
+                        return {
+                            start: { hour: startHour, minute: startMin },
+                            end: { hour: endHour, minute: endMin },
+                            startMinutes: startHour * 60 + startMin,
+                            endMinutes: endHour * 60 + endMin,
+                            durationMinutes: (endHour * 60 + endMin) - (startHour * 60 + startMin)
+                        };
+                    };
                     
-                    // 计划时间
-                    const plannedTimeDiv = document.createElement('div');
-                    plannedTimeDiv.className = 'time-review-planned-time';
+                    const plannedTime = parseTimeRange(event.time_range);
+                    const actualTime = parseTimeRange(event.actual_time_range);
+                    
+                    // 计算时间轴的起始和结束时间（取两者的最小和最大值）
+                    const minStartMinutes = Math.min(plannedTime.startMinutes, actualTime.startMinutes);
+                    const maxEndMinutes = Math.max(plannedTime.endMinutes, actualTime.endMinutes);
+                    
+                    // 为了显示美观，在时间轴两端各添加30分钟的缓冲
+                    const timelineStartMinutes = Math.max(0, minStartMinutes - 30);
+                    const timelineEndMinutes = Math.min(24 * 60, maxEndMinutes + 30);
+                    const timelineDuration = timelineEndMinutes - timelineStartMinutes;
+                    
+                    // 创建时间轴容器
+                    const timelineContainer = document.createElement('div');
+                    timelineContainer.className = 'time-review-timeline-container';
+                    
+                    // 创建时间轴
+                    const timeline = document.createElement('div');
+                    timeline.className = 'time-review-timeline';
+                    
+                    // 添加时间刻度
+                    const hourMarkers = [];
+                    const startHour = Math.floor(timelineStartMinutes / 60);
+                    const endHour = Math.ceil(timelineEndMinutes / 60);
+                    
+                    for (let hour = startHour; hour <= endHour; hour++) {
+                        const hourMinutes = hour * 60;
+                        if (hourMinutes >= timelineStartMinutes && hourMinutes <= timelineEndMinutes) {
+                            const marker = document.createElement('div');
+                            marker.className = 'time-review-hour-marker';
+                            const position = ((hourMinutes - timelineStartMinutes) / timelineDuration) * 100;
+                            marker.style.left = `${position}%`;
+                            
+                            const label = document.createElement('div');
+                            label.className = 'time-review-hour-label';
+                            label.textContent = `${hour}:00`;
+                            marker.appendChild(label);
+                            
+                            timeline.appendChild(marker);
+                            hourMarkers.push(marker);
+                        }
+                    }
+                    
+                    // 添加计划时间条
+                    const plannedBar = document.createElement('div');
+                    plannedBar.className = 'time-review-time-bar planned-time-bar';
+                    const plannedStart = ((plannedTime.startMinutes - timelineStartMinutes) / timelineDuration) * 100;
+                    const plannedWidth = (plannedTime.durationMinutes / timelineDuration) * 100;
+                    plannedBar.style.left = `${plannedStart}%`;
+                    plannedBar.style.width = `${plannedWidth}%`;
                     
                     const plannedLabel = document.createElement('div');
-                    plannedLabel.className = 'time-review-time-label';
-                    plannedLabel.textContent = '计划时间';
-                    plannedTimeDiv.appendChild(plannedLabel);
+                    plannedLabel.className = 'time-review-bar-label';
+                    plannedLabel.textContent = `计划: ${event.time_range}`;
+                    plannedBar.appendChild(plannedLabel);
                     
-                    const plannedValue = document.createElement('div');
-                    plannedValue.className = 'time-review-time-value';
-                    plannedValue.textContent = event.time_range;
-                    plannedTimeDiv.appendChild(plannedValue);
+                    timeline.appendChild(plannedBar);
                     
-                    timesDiv.appendChild(plannedTimeDiv);
-                    
-                    // 实际时间
-                    const actualTimeDiv = document.createElement('div');
-                    actualTimeDiv.className = 'time-review-actual-time';
+                    // 添加实际时间条
+                    const actualBar = document.createElement('div');
+                    actualBar.className = 'time-review-time-bar actual-time-bar';
+                    const actualStart = ((actualTime.startMinutes - timelineStartMinutes) / timelineDuration) * 100;
+                    const actualWidth = (actualTime.durationMinutes / timelineDuration) * 100;
+                    actualBar.style.left = `${actualStart}%`;
+                    actualBar.style.width = `${actualWidth}%`;
                     
                     const actualLabel = document.createElement('div');
-                    actualLabel.className = 'time-review-time-label';
-                    actualLabel.textContent = '实际时间';
-                    actualTimeDiv.appendChild(actualLabel);
+                    actualLabel.className = 'time-review-bar-label';
+                    actualLabel.textContent = `实际: ${event.actual_time_range}`;
+                    actualBar.appendChild(actualLabel);
                     
-                    const actualValue = document.createElement('div');
-                    actualValue.className = 'time-review-time-value';
-                    actualValue.textContent = event.actual_time_range;
-                    actualTimeDiv.appendChild(actualValue);
+                    timeline.appendChild(actualBar);
                     
-                    timesDiv.appendChild(actualTimeDiv);
+                    // 计算时间差异
+                    const startDiff = actualTime.startMinutes - plannedTime.startMinutes;
+                    const endDiff = actualTime.endMinutes - plannedTime.endMinutes;
+                    const durationDiff = actualTime.durationMinutes - plannedTime.durationMinutes;
                     
-                    contentDiv.appendChild(timesDiv);
+                    // 创建时间差异说明
+                    const diffInfo = document.createElement('div');
+                    diffInfo.className = 'time-review-diff-info';
+                    
+                    let diffText = '';
+                    if (startDiff !== 0) {
+                        const startDiffAbs = Math.abs(startDiff);
+                        const startDiffHours = Math.floor(startDiffAbs / 60);
+                        const startDiffMinutes = startDiffAbs % 60;
+                        let startDiffStr = '';
+                        if (startDiffHours > 0) {
+                            startDiffStr += `${startDiffHours}小时`;
+                        }
+                        if (startDiffMinutes > 0 || startDiffHours === 0) {
+                            startDiffStr += `${startDiffMinutes}分钟`;
+                        }
+                        diffText += `开始时间${startDiff > 0 ? '延后' : '提前'}了${startDiffStr}。`;
+                    }
+                    
+                    if (durationDiff !== 0) {
+                        const durationDiffAbs = Math.abs(durationDiff);
+                        const durationDiffHours = Math.floor(durationDiffAbs / 60);
+                        const durationDiffMinutes = durationDiffAbs % 60;
+                        let durationDiffStr = '';
+                        if (durationDiffHours > 0) {
+                            durationDiffStr += `${durationDiffHours}小时`;
+                        }
+                        if (durationDiffMinutes > 0 || durationDiffHours === 0) {
+                            durationDiffStr += `${durationDiffMinutes}分钟`;
+                        }
+                        diffText += `实际用时${durationDiff > 0 ? '多' : '少'}了${durationDiffStr}。`;
+                    }
+                    
+                    if (diffText) {
+                        diffInfo.textContent = diffText;
+                        timeline.appendChild(diffInfo);
+                    }
+                    
+                    timelineContainer.appendChild(timeline);
+                    contentDiv.appendChild(timelineContainer);
                     
                     // 备注区域
                     const notesDiv = document.createElement('div');
