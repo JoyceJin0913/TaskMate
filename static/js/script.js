@@ -552,12 +552,6 @@ function renderEventItem(event, container, options = {}) {
     const isRecurring = event.recurrence_rule && event.recurrence_rule.trim() !== '';
     if (isRecurring) {
         eventItem.dataset.recurring = 'true';
-        // 为周期性事件添加特殊标记
-        const recurIcon = document.createElement('span');
-        recurIcon.className = 'recur-icon';
-        recurIcon.textContent = '🔄';
-        recurIcon.title = '周期性事件';
-        eventItem.appendChild(recurIcon);
     }
     
     // 添加点击事件显示详情
