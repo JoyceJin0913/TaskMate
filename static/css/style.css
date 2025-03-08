@@ -842,4 +842,76 @@ select {
     background-color: #f44336;
     color: white;
 }
+
+/* 时间选择器样式 */
+.time-picker-container {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 5px;
+}
+
+.time-picker-group {
+    flex: 1;
+}
+
+.time-picker-group label {
+    display: block;
+    margin-bottom: 5px;
+    font-size: 14px;
+    color: #555;
+}
+
+.time-picker-separator {
+    margin: 0 5px;
+    padding-top: 20px;
+    color: #666;
+}
+
+input[type="time"] {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 14px;
+    color: #333;
+}
+
+input[type="time"]:focus {
+    border-color: #4CAF50;
+    outline: none;
+    box-shadow: 0 0 3px rgba(76, 175, 80, 0.3);
+}
+
+.dialog-content .form-group {
+    margin-bottom: 15px;
+}
+
+.dialog-content label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: bold;
+    color: #333;
+}
+
+.dialog-content input[type="text"],
+.dialog-content textarea {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+.dialog-content textarea {
+    resize: vertical;
+    min-height: 60px;
+}
+
+.dialog-buttons {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 20px;
+}
     

@@ -82,14 +82,14 @@ document.addEventListener('DOMContentLoaded', function() {
 
     document.getElementById('submit-complete').addEventListener('click', submitCompleteTask);
 
-    // 为实际时间范围输入框添加验证
-    document.getElementById('actual-time-range').addEventListener('change', function() {
-        const value = this.value.trim();
-        if (value && !isValidTimeRange(value)) {
-            alert('时间范围格式无效，请使用HH:MM-HH:MM格式');
-            this.value = '';
-        }
-    });
+    // 初始化时间选择器
+    const now = new Date();
+    const currentHour = now.getHours().toString().padStart(2, '0');
+    const currentMinute = now.getMinutes().toString().padStart(2, '0');
+    const currentTime = `${currentHour}:${currentMinute}`;
+    
+    // 当用户打开对话框时，默认设置开始时间为当前时间
+    document.getElementById('actual-start-time').value = currentTime;
 });
 
 // 初始化视图
@@ -1652,7 +1652,8 @@ function renderCompletedView() {
 
 // 清空完成任务表单
 function clearCompleteTaskForm() {
-    document.getElementById('actual-time-range').value = '';
+    document.getElementById('actual-start-time').value = '';
+    document.getElementById('actual-end-time').value = '';
     document.getElementById('completion-notes').value = '';
     document.getElementById('reflection-notes').value = '';
 }
@@ -1674,6 +1675,15 @@ function markEventCompleted(eventId, eventDate) {
         date: eventDate
     };
 
+    // 设置默认的开始时间为当前时间
+    const now = new Date();
+    const currentHour = now.getHours().toString().padStart(2, '0');
+    const currentMinute = now.getMinutes().toString().padStart(2, '0');
+    const currentTime = `${currentHour}:${currentMinute}`;
+    
+    document.getElementById('actual-start-time').value = currentTime;
+    document.getElementById('actual-end-time').value = '';
+
     // 显示完成任务对话框
     document.getElementById('complete-task-dialog').classList.remove('hidden');
 }
@@ -1685,15 +1695,27 @@ function submitCompleteTask() {
         return;
     }
 
-    const actualTimeRange = document.getElementById('actual-time-range').value.trim();
+    const startTime = document.getElementById('actual-start-time').value;
+    const endTime = document.getElementById('actual-end-time').value;
     const completionNotes = document.getElementById('completion-notes').value.trim();
     const reflectionNotes = document.getElementById('reflection-notes').value.trim();
 
-    // 验证时间范围格式（如果用户输入了内容）
-    if (actualTimeRange && !isValidTimeRange(actualTimeRange)) {
-        alert('时间范围格式无效，请使用HH:MM-HH:MM格式');
+    // 构建时间范围字符串
+    let actualTimeRange = '';
+    if (startTime && endTime) {
+        // 验证开始时间是否小于结束时间
+        if (startTime >= endTime) {
+            alert('开始时间必须早于结束时间');
+            return;
+        }
+        actualTimeRange = `${startTime}-${endTime}`;
+    } else if (startTime || endTime) {
+        // 如果只填写了一个时间，提示用户
+        alert('请同时填写开始时间和结束时间，或者都不填写');
         return;
     }
+
+    // 注意：我们不再需要 isValidTimeRange 函数，因为我们现在使用 HTML5 的 time 输入类型来验证时间格式
 
     // 准备请求数据
     const requestData = {

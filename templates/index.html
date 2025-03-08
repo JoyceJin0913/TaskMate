@@ -188,8 +188,18 @@
             </div>
             <div class="dialog-content">
                 <div class="form-group">
-                    <label for="actual-time-range">实际发生时间范围（可选）：</label>
-                    <input type="text" id="actual-time-range" placeholder="格式：HH:MM-HH:MM">
+                    <label>实际发生时间范围（可选）：</label>
+                    <div class="time-picker-container">
+                        <div class="time-picker-group">
+                            <label for="actual-start-time">开始时间：</label>
+                            <input type="time" id="actual-start-time">
+                        </div>
+                        <div class="time-picker-separator">至</div>
+                        <div class="time-picker-group">
+                            <label for="actual-end-time">结束时间：</label>
+                            <input type="time" id="actual-end-time">
+                        </div>
+                    </div>
                 </div>
                 <div class="form-group">
                     <label for="completion-notes">完成情况备注（可选）：</label>

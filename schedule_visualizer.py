@@ -589,8 +589,18 @@ def create_templates():
             </div>
             <div class="dialog-content">
                 <div class="form-group">
-                    <label for="actual-time-range">实际发生时间范围（可选）：</label>
-                    <input type="text" id="actual-time-range" placeholder="格式：HH:MM-HH:MM">
+                    <label>实际发生时间范围（可选）：</label>
+                    <div class="time-picker-container">
+                        <div class="time-picker-group">
+                            <label for="actual-start-time">开始时间：</label>
+                            <input type="time" id="actual-start-time">
+                        </div>
+                        <div class="time-picker-separator">至</div>
+                        <div class="time-picker-group">
+                            <label for="actual-end-time">结束时间：</label>
+                            <input type="time" id="actual-end-time">
+                        </div>
+                    </div>
                 </div>
                 <div class="form-group">
                     <label for="completion-notes">完成情况备注（可选）：</label>
@@ -1462,6 +1472,78 @@ select {
     background-color: #f44336;
     color: white;
 }
+
+/* 时间选择器样式 */
+.time-picker-container {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 5px;
+}
+
+.time-picker-group {
+    flex: 1;
+}
+
+.time-picker-group label {
+    display: block;
+    margin-bottom: 5px;
+    font-size: 14px;
+    color: #555;
+}
+
+.time-picker-separator {
+    margin: 0 5px;
+    padding-top: 20px;
+    color: #666;
+}
+
+input[type="time"] {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 14px;
+    color: #333;
+}
+
+input[type="time"]:focus {
+    border-color: #4CAF50;
+    outline: none;
+    box-shadow: 0 0 3px rgba(76, 175, 80, 0.3);
+}
+
+.dialog-content .form-group {
+    margin-bottom: 15px;
+}
+
+.dialog-content label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: bold;
+    color: #333;
+}
+
+.dialog-content input[type="text"],
+.dialog-content textarea {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+.dialog-content textarea {
+    resize: vertical;
+    min-height: 60px;
+}
+
+.dialog-buttons {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 20px;
+}
     '''
     
     with open('static/css/style.css', 'w', encoding='utf-8') as f:
@@ -1553,14 +1635,14 @@ document.addEventListener('DOMContentLoaded', function() {
 
     document.getElementById('submit-complete').addEventListener('click', submitCompleteTask);
 
-    // 为实际时间范围输入框添加验证
-    document.getElementById('actual-time-range').addEventListener('change', function() {
-        const value = this.value.trim();
-        if (value && !isValidTimeRange(value)) {
-            alert('时间范围格式无效，请使用HH:MM-HH:MM格式');
-            this.value = '';
-        }
-    });
+    // 初始化时间选择器
+    const now = new Date();
+    const currentHour = now.getHours().toString().padStart(2, '0');
+    const currentMinute = now.getMinutes().toString().padStart(2, '0');
+    const currentTime = `${currentHour}:${currentMinute}`;
+    
+    // 当用户打开对话框时，默认设置开始时间为当前时间
+    document.getElementById('actual-start-time').value = currentTime;
 });
 
 // 初始化视图
@@ -3123,7 +3205,8 @@ function renderCompletedView() {
 
 // 清空完成任务表单
 function clearCompleteTaskForm() {
-    document.getElementById('actual-time-range').value = '';
+    document.getElementById('actual-start-time').value = '';
+    document.getElementById('actual-end-time').value = '';
     document.getElementById('completion-notes').value = '';
     document.getElementById('reflection-notes').value = '';
 }
@@ -3145,6 +3228,15 @@ function markEventCompleted(eventId, eventDate) {
         date: eventDate
     };
 
+    // 设置默认的开始时间为当前时间
+    const now = new Date();
+    const currentHour = now.getHours().toString().padStart(2, '0');
+    const currentMinute = now.getMinutes().toString().padStart(2, '0');
+    const currentTime = `${currentHour}:${currentMinute}`;
+    
+    document.getElementById('actual-start-time').value = currentTime;
+    document.getElementById('actual-end-time').value = '';
+
     // 显示完成任务对话框
     document.getElementById('complete-task-dialog').classList.remove('hidden');
 }
@@ -3156,15 +3248,27 @@ function submitCompleteTask() {
         return;
     }
 
-    const actualTimeRange = document.getElementById('actual-time-range').value.trim();
+    const startTime = document.getElementById('actual-start-time').value;
+    const endTime = document.getElementById('actual-end-time').value;
     const completionNotes = document.getElementById('completion-notes').value.trim();
     const reflectionNotes = document.getElementById('reflection-notes').value.trim();
 
-    // 验证时间范围格式（如果用户输入了内容）
-    if (actualTimeRange && !isValidTimeRange(actualTimeRange)) {
-        alert('时间范围格式无效，请使用HH:MM-HH:MM格式');
+    // 构建时间范围字符串
+    let actualTimeRange = '';
+    if (startTime && endTime) {
+        // 验证开始时间是否小于结束时间
+        if (startTime >= endTime) {
+            alert('开始时间必须早于结束时间');
+            return;
+        }
+        actualTimeRange = `${startTime}-${endTime}`;
+    } else if (startTime || endTime) {
+        // 如果只填写了一个时间，提示用户
+        alert('请同时填写开始时间和结束时间，或者都不填写');
         return;
     }
+
+    // 注意：我们不再需要 isValidTimeRange 函数，因为我们现在使用 HTML5 的 time 输入类型来验证时间格式
 
     // 准备请求数据
     const requestData = {
