@@ -3,6 +3,7 @@ import os
 import csv
 import sqlite3
 from datetime import datetime, timedelta, date
+import json
 
 
 class TimetableProcessor:
@@ -46,7 +47,6 @@ class TimetableProcessor:
             deadline TEXT,
             importance INTEGER,
             recurrence_rule TEXT,
-            completed INTEGER DEFAULT 0,
             last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
         ''')
@@ -69,7 +69,7 @@ class TimetableProcessor:
         )
         ''')
         
-        # 检查并添加recurrence_rule列（如果不存在）
+        # 检查并更新表结构
         self._check_and_update_table_structure(conn)
         
         conn.commit()
@@ -102,14 +102,76 @@ class TimetableProcessor:
             cursor.execute("ALTER TABLE timetable ADD COLUMN recurrence_rule TEXT")
             conn.commit()
         
-        # 检查completed列是否存在，如果不存在则添加
-        if 'completed' not in columns:
-            print("Adding completed column to timetable")
-            cursor.execute("ALTER TABLE timetable ADD COLUMN completed INTEGER DEFAULT 0")
+        # 如果存在completed列，则迁移已完成的事件到completed_task表，然后删除该列
+        if 'completed' in columns:
+            print("Migrating completed events to completed_task table")
+            self._migrate_completed_events(conn)
+            
+            # SQLite不直接支持删除列，所以我们需要创建一个新表并迁移数据
+            print("Removing completed column from timetable")
+            cursor.execute('''
+            CREATE TABLE timetable_new (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                title TEXT NOT NULL,
+                date TEXT NOT NULL,
+                time_range TEXT NOT NULL,
+                event_type TEXT NOT NULL,
+                deadline TEXT,
+                importance INTEGER,
+                recurrence_rule TEXT,
+                last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+            ''')
+            
+            # 复制数据到新表，排除completed列
+            cursor.execute('''
+            INSERT INTO timetable_new (id, title, date, time_range, event_type, deadline, importance, recurrence_rule, last_updated)
+            SELECT id, title, date, time_range, event_type, deadline, importance, recurrence_rule, last_updated
+            FROM timetable
+            WHERE completed = 0 OR completed IS NULL
+            ''')
+            
+            # 删除旧表并重命名新表
+            cursor.execute("DROP TABLE timetable")
+            cursor.execute("ALTER TABLE timetable_new RENAME TO timetable")
             conn.commit()
         
         if close_conn:
             conn.close()
+    
+    def _migrate_completed_events(self, conn):
+        """
+        将timetable表中已完成的事件迁移到completed_task表。
+        
+        Args:
+            conn (sqlite3.Connection): 数据库连接
+        """
+        cursor = conn.cursor()
+        
+        # 获取所有已完成的事件
+        cursor.execute('''
+        SELECT id, title, date, time_range, event_type, deadline, importance
+        FROM timetable
+        WHERE completed = 1
+        ''')
+        
+        completed_events = cursor.fetchall()
+        
+        # 将已完成的事件添加到completed_task表
+        for event in completed_events:
+            event_id, title, date, time_range, event_type, deadline, importance = event
+            
+            # 检查事件是否已经在completed_task表中
+            cursor.execute('SELECT 1 FROM completed_task WHERE task_id = ?', (event_id,))
+            if cursor.fetchone() is None:
+                # 如果不存在，则添加
+                cursor.execute('''
+                INSERT INTO completed_task (
+                    task_id, title, date, time_range, event_type, deadline, importance
+                ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                ''', (event_id, title, date, time_range, event_type, deadline, importance))
+        
+        conn.commit()
     
     def _init_csv(self):
         """Initialize CSV file with headers if it doesn't exist."""
@@ -878,6 +940,10 @@ class TimetableProcessor:
             cursor.execute(query, params)
             events = [dict(row) for row in cursor.fetchall()]
             
+            # 为每个事件添加source标志
+            for event in events:
+                event['source'] = 'timetable'
+            
             conn.close()
             return events
         
@@ -896,6 +962,10 @@ class TimetableProcessor:
                             continue
                         if date_to and event['date'] > date_to:
                             continue
+                        
+                        # 添加source标志
+                        event['source'] = 'timetable'
+                        
                         filtered_events.append(event)
                     
                     # 排序
@@ -1021,6 +1091,10 @@ class TimetableProcessor:
             cursor.execute(query, params)
             events = [dict(row) for row in cursor.fetchall()]
             
+            # 为每个事件添加source标志
+            for event in events:
+                event['source'] = 'timetable'
+            
             conn.close()
             return events
         
@@ -1033,6 +1107,10 @@ class TimetableProcessor:
                     events = [row for row in reader if row['date'] == date]
             
             events = sorted(events, key=lambda x: x['time_range'])
+            
+            # 为每个事件添加source标志
+            for event in events:
+                event['source'] = 'timetable'
             
             # 应用分页
             if limit is not None:
@@ -1788,14 +1866,87 @@ class TimetableProcessor:
                     
             return found
 
-    def mark_event_completed(self, event_id, completed=True):
+    def mark_event_completed(self, event_id, completed=True, completion_notes=None, reflection_notes=None):
         """
-        标记事件为已完成或未完成。
+        标记事件为已完成或未完成。如果标记为已完成，则将事件移动到已完成任务表。
         
         Args:
             event_id (int): 事件ID
             completed (bool): 是否已完成，默认为True
+            completion_notes (str, optional): 完成情况备注
+            reflection_notes (str, optional): 复盘笔记
         
+        Returns:
+            bool: 操作是否成功
+        """
+        if completed:
+            # 如果标记为已完成，则移动到已完成任务表
+            return self.move_completed_event_to_history(event_id, completion_notes, reflection_notes)
+        else:
+            # 如果标记为未完成，且事件已在已完成任务表中，则需要将其移回时间表
+            # 这种情况在实际应用中可能较少发生，但为了完整性，我们也处理这种情况
+            if self.database_type == "sqlite":
+                conn = sqlite3.connect(self.db_path)
+                cursor = conn.cursor()
+                
+                try:
+                    # 检查事件是否在已完成任务表中
+                    cursor.execute('SELECT * FROM completed_task WHERE task_id = ?', (event_id,))
+                    completed_task = cursor.fetchone()
+                    
+                    if completed_task:
+                        # 如果在已完成任务表中，则将其移回时间表
+                        # 首先获取事件详情
+                        cursor.execute('''
+                        SELECT title, date, time_range, event_type, deadline, importance
+                        FROM completed_task WHERE task_id = ?
+                        ''', (event_id,))
+                        
+                        task = cursor.fetchone()
+                        if not task:
+                            raise ValueError(f"Task with ID {event_id} not found in completed_task")
+                        
+                        # 添加到时间表
+                        cursor.execute('''
+                        INSERT INTO timetable (
+                            id, title, date, time_range, event_type, deadline, importance, last_updated
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                        ''', (
+                            event_id, task[0], task[1], task[2], task[3], task[4], task[5]
+                        ))
+                        
+                        # 从已完成任务表中删除
+                        cursor.execute('DELETE FROM completed_task WHERE task_id = ?', (event_id,))
+                        
+                        conn.commit()
+                        success = True
+                    else:
+                        # 如果不在已完成任务表中，则无需操作
+                        success = False
+                    
+                    conn.close()
+                    return success
+                except Exception as e:
+                    print(f"Error marking event as not completed: {e}")
+                    if conn:
+                        conn.rollback()
+                        conn.close()
+                    return False
+            elif self.database_type == "csv":
+                # 这里需要实现CSV版本的逻辑
+                # 由于CSV处理较为复杂，这里简化处理，仅返回False表示不支持
+                print("Marking event as not completed in CSV is not supported")
+                return False
+    
+    def move_completed_event_to_history(self, event_id, completion_notes=None, reflection_notes=None):
+        """
+        将事件从时间表移动到已完成任务表。
+        
+        Args:
+            event_id (int): 事件ID
+            completion_notes (str, optional): 完成情况备注
+            reflection_notes (str, optional): 复盘笔记
+            
         Returns:
             bool: 操作是否成功
         """
@@ -1804,45 +1955,163 @@ class TimetableProcessor:
             cursor = conn.cursor()
             
             try:
-                # 将布尔值转换为整数（0或1）
-                completed_int = 1 if completed else 0
+                # 首先检查事件是否已经在已完成任务表中
+                cursor.execute('SELECT 1 FROM completed_task WHERE task_id = ?', (event_id,))
+                if cursor.fetchone():
+                    print(f"Task with ID {event_id} already exists in completed_task table")
+                    # 确保从时间表中删除该事件（如果存在）
+                    cursor.execute('DELETE FROM timetable WHERE id = ?', (event_id,))
+                    conn.commit()
+                    conn.close()
+                    return True
                 
-                # 更新事件的完成状态
-                cursor.execute(
-                    'UPDATE timetable SET completed = ?, last_updated = CURRENT_TIMESTAMP WHERE id = ?',
-                    (completed_int, event_id)
-                )
+                # 获取任务详情
+                cursor.execute('''
+                SELECT title, date, time_range, event_type, deadline, importance, recurrence_rule
+                FROM timetable WHERE id = ?
+                ''', (event_id,))
+                
+                task = cursor.fetchone()
+                if not task:
+                    # 如果在时间表中找不到该事件，可能已经被移动或删除
+                    print(f"Task with ID {event_id} not found in timetable")
+                    conn.close()
+                    return False
+                
+                # 添加到已完成任务表
+                cursor.execute('''
+                INSERT INTO completed_task (
+                    task_id, title, date, time_range, event_type, deadline, 
+                    importance, completion_notes, reflection_notes
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ''', (
+                    event_id, task[0], task[1], task[2], task[3], task[4], 
+                    task[5], completion_notes, reflection_notes
+                ))
+                
+                # 如果是周期性事件，则不删除原事件，而是更新最后更新时间
+                if task[6]:  # recurrence_rule
+                    cursor.execute(
+                        'UPDATE timetable SET last_updated = CURRENT_TIMESTAMP WHERE id = ?',
+                        (event_id,)
+                    )
+                else:
+                    # 从时间表中删除该事件
+                    cursor.execute('DELETE FROM timetable WHERE id = ?', (event_id,))
                 
                 conn.commit()
-                success = cursor.rowcount > 0
+                success = True
                 conn.close()
                 return success
+                
             except Exception as e:
-                print(f"Error marking event as completed: {e}")
-                conn.close()
+                print(f"Error moving completed event to history: {e}")
+                if conn:
+                    conn.rollback()
+                    conn.close()
                 return False
+        
         elif self.database_type == "csv":
+            # 读取已完成任务CSV，检查是否已存在
+            completed_task_path = os.path.splitext(self.csv_path)[0] + '_completed.csv'
+            if os.path.exists(completed_task_path):
+                with open(completed_task_path, 'r', newline='', encoding='utf-8') as file:
+                    reader = csv.DictReader(file)
+                    for row in reader:
+                        if row.get('task_id') == str(event_id):
+                            print(f"Task with ID {event_id} already exists in completed_task CSV")
+                            # 确保从时间表中删除该事件（如果存在）
+                            self._remove_event_from_csv(event_id)
+                            return True
+            
             # 读取所有事件
             events = []
+            completed_event = None
             with open(self.csv_path, 'r', newline='', encoding='utf-8') as file:
                 reader = csv.DictReader(file)
                 fieldnames = reader.fieldnames
                 for row in reader:
                     if row['id'] == str(event_id):
-                        row['completed'] = '1' if completed else '0'
-                        row['last_updated'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                    events.append(row)
+                        completed_event = row.copy()
+                        # 如果是周期性事件，则保留原事件
+                        if row.get('recurrence_rule'):
+                            row['last_updated'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                            events.append(row)
+                        # 否则不将此事件添加到events列表中，相当于删除
+                    else:
+                        events.append(row)
             
-            # 写回所有事件
+            if not completed_event:
+                return False
+                
+            # 写回剩余事件
             try:
                 with open(self.csv_path, 'w', newline='', encoding='utf-8') as file:
                     writer = csv.DictWriter(file, fieldnames=fieldnames)
                     writer.writeheader()
                     writer.writerows(events)
+                
+                # 添加到已完成任务CSV
+                completed_fieldnames = [f for f in fieldnames if f != 'completed'] + ['completion_date', 'completion_notes', 'reflection_notes']
+                
+                # 检查已完成任务CSV是否存在
+                file_exists = os.path.isfile(completed_task_path)
+                
+                with open(completed_task_path, 'a', newline='', encoding='utf-8') as file:
+                    writer = csv.DictWriter(file, fieldnames=completed_fieldnames)
+                    if not file_exists:
+                        writer.writeheader()
+                    
+                    # 添加完成信息
+                    if 'completed' in completed_event:
+                        del completed_event['completed']  # 移除completed字段
+                    completed_event['task_id'] = completed_event['id']  # 添加task_id字段
+                    completed_event['completion_date'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                    completed_event['completion_notes'] = completion_notes or ''
+                    completed_event['reflection_notes'] = reflection_notes or ''
+                    writer.writerow(completed_event)
+                
                 return True
             except Exception as e:
-                print(f"Error marking event as completed in CSV: {e}")
+                print(f"Error moving completed event to history in CSV: {e}")
                 return False
+    
+    def _remove_event_from_csv(self, event_id):
+        """
+        从CSV文件中删除指定ID的事件。
+        
+        Args:
+            event_id (int): 要删除的事件ID
+            
+        Returns:
+            bool: 是否成功删除
+        """
+        if not os.path.exists(self.csv_path):
+            return False
+            
+        events = []
+        found = False
+        
+        with open(self.csv_path, 'r', newline='', encoding='utf-8') as file:
+            reader = csv.DictReader(file)
+            fieldnames = reader.fieldnames
+            for row in reader:
+                if row['id'] == str(event_id):
+                    found = True
+                    # 如果是周期性事件，则保留
+                    if row.get('recurrence_rule'):
+                        row['last_updated'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                        events.append(row)
+                else:
+                    events.append(row)
+        
+        if found:
+            with open(self.csv_path, 'w', newline='', encoding='utf-8') as file:
+                writer = csv.DictWriter(file, fieldnames=fieldnames)
+                writer.writeheader()
+                writer.writerows(events)
+                
+        return found
     
     def get_completed_events(self, date_from=None, date_to=None, limit=None, offset=0):
         """
@@ -1855,27 +2124,30 @@ class TimetableProcessor:
             offset (int, optional): 跳过的事件数
         
         Returns:
-            list: 已完成事件列表
+            list: 已完成事件列表，每个事件都添加了source='completed_task'标志
         """
         if self.database_type == "sqlite":
             conn = sqlite3.connect(self.db_path)
             conn.row_factory = sqlite3.Row
             cursor = conn.cursor()
             
-            query = 'SELECT * FROM timetable WHERE completed = 1'
+            query = 'SELECT * FROM completed_task'
             params = []
             
             # 添加日期范围过滤
-            if date_from:
-                query += ' AND date >= ?'
-                params.append(date_from)
-            
-            if date_to:
-                query += ' AND date <= ?'
-                params.append(date_to)
+            if date_from or date_to:
+                query += ' WHERE 1=1'
+                
+                if date_from:
+                    query += ' AND date >= ?'
+                    params.append(date_from)
+                
+                if date_to:
+                    query += ' AND date <= ?'
+                    params.append(date_to)
             
             # 添加排序
-            query += ' ORDER BY date DESC, time_range'
+            query += ' ORDER BY completion_date DESC'
             
             # 添加分页
             if limit is not None:
@@ -1889,23 +2161,41 @@ class TimetableProcessor:
             cursor.execute(query, params)
             events = [dict(row) for row in cursor.fetchall()]
             
+            # 为每个事件添加source标志
+            for event in events:
+                event['source'] = 'completed_task'
+                # 确保id字段存在（前端可能依赖此字段）
+                if 'id' not in event and 'task_id' in event:
+                    event['id'] = event['task_id']
+            
             conn.close()
             return events
         elif self.database_type == "csv":
+            # 读取已完成任务CSV
+            completed_task_path = os.path.splitext(self.csv_path)[0] + '_completed.csv'
+            if not os.path.exists(completed_task_path):
+                return []
+                
             events = []
-            with open(self.csv_path, 'r', newline='', encoding='utf-8') as file:
+            with open(completed_task_path, 'r', newline='', encoding='utf-8') as file:
                 reader = csv.DictReader(file)
                 for row in reader:
-                    if row.get('completed') == '1':
-                        # 日期范围过滤
-                        if date_from and row['date'] < date_from:
-                            continue
-                        if date_to and row['date'] > date_to:
-                            continue
-                        events.append(row)
+                    # 日期范围过滤
+                    if date_from and row['date'] < date_from:
+                        continue
+                    if date_to and row['date'] > date_to:
+                        continue
+                    
+                    # 添加source标志
+                    row['source'] = 'completed_task'
+                    # 确保id字段存在
+                    if 'id' not in row and 'task_id' in row:
+                        row['id'] = row['task_id']
+                        
+                    events.append(row)
             
             # 排序
-            events.sort(key=lambda x: (x['date'], x['time_range']), reverse=True)
+            events.sort(key=lambda x: x.get('completion_date', ''), reverse=True)
             
             # 分页
             if offset:
@@ -1914,7 +2204,7 @@ class TimetableProcessor:
                 events = events[:limit]
                 
             return events
-
+    
     def mark_task_completed_with_history(self, event_id, completion_notes=None, reflection_notes=None):
         """
         将任务标记为已完成，并将其添加到历史记录中。
@@ -1927,48 +2217,9 @@ class TimetableProcessor:
         Returns:
             bool: 操作是否成功
         """
-        if self.database_type == "sqlite":
-            conn = sqlite3.connect(self.db_path)
-            cursor = conn.cursor()
-            
-            try:
-                # 首先获取任务详情
-                cursor.execute('''
-                SELECT title, date, time_range, event_type, deadline, importance
-                FROM timetable WHERE id = ?
-                ''', (event_id,))
-                
-                task = cursor.fetchone()
-                if not task:
-                    raise ValueError(f"Task with ID {event_id} not found")
-                
-                # 将任务标记为已完成
-                cursor.execute(
-                    'UPDATE timetable SET completed = 1, last_updated = CURRENT_TIMESTAMP WHERE id = ?',
-                    (event_id,)
-                )
-                
-                # 添加到历史记录
-                cursor.execute('''
-                INSERT INTO completed_task (
-                    task_id, title, date, time_range, event_type, deadline, 
-                    importance, completion_notes, reflection_notes
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                ''', (
-                    event_id, task[0], task[1], task[2], task[3], task[4], 
-                    task[5], completion_notes, reflection_notes
-                ))
-                
-                conn.commit()
-                success = cursor.rowcount > 0
-                conn.close()
-                return success
-                
-            except Exception as e:
-                print(f"Error marking task as completed: {e}")
-                conn.close()
-                return False
-                
+        # 直接调用move_completed_event_to_history方法
+        return self.move_completed_event_to_history(event_id, completion_notes, reflection_notes)
+    
     def add_task_reflection(self, task_id, reflection_notes):
         """
         为已完成的任务添加或更新复盘笔记。
@@ -2087,3 +2338,67 @@ class TimetableProcessor:
             # 实现CSV文件的复盘记录获取逻辑
             # 这里需要根据CSV文件的存储格式来实现
             raise NotImplementedError("CSV文件的复盘记录获取逻辑尚未实现")
+
+    def delete_completed_task(self, task_id):
+        """
+        从已完成任务表中删除指定的任务。
+        
+        Args:
+            task_id (int): 任务ID
+            
+        Returns:
+            bool: 操作是否成功
+        """
+        if self.database_type == "sqlite":
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            
+            try:
+                # 从已完成任务表中删除
+                cursor.execute('DELETE FROM completed_task WHERE task_id = ? OR id = ?', (task_id, task_id))
+                
+                conn.commit()
+                success = cursor.rowcount > 0
+                conn.close()
+                return success
+                
+            except Exception as e:
+                print(f"Error deleting completed task: {e}")
+                if conn:
+                    conn.rollback()
+                    conn.close()
+                return False
+        
+        elif self.database_type == "csv":
+            # 读取已完成任务CSV
+            completed_task_path = os.path.splitext(self.csv_path)[0] + '_completed.csv'
+            if not os.path.exists(completed_task_path):
+                return False
+                
+            tasks = []
+            found = False
+            
+            with open(completed_task_path, 'r', newline='', encoding='utf-8') as file:
+                reader = csv.DictReader(file)
+                fieldnames = reader.fieldnames
+                for row in reader:
+                    # 检查是否为要删除的任务
+                    if row.get('task_id') == str(task_id) or row.get('id') == str(task_id):
+                        found = True
+                    else:
+                        tasks.append(row)
+            
+            if not found:
+                return False
+                
+            # 写回剩余任务
+            try:
+                with open(completed_task_path, 'w', newline='', encoding='utf-8') as file:
+                    writer = csv.DictWriter(file, fieldnames=fieldnames)
+                    writer.writeheader()
+                    writer.writerows(tasks)
+                
+                return True
+            except Exception as e:
+                print(f"Error deleting completed task in CSV: {e}")
+                return False

@@ -39,7 +39,7 @@ def get_events():
         date_from = first_day.strftime('%Y-%m-%d')
         date_to = last_day.strftime('%Y-%m-%d')
     
-    # 从数据库获取事件
+    # 从数据库获取未完成事件
     events = timetable_processor.get_all_events(
         date_from=date_from,
         date_to=date_to,
@@ -47,12 +47,52 @@ def get_events():
         offset=offset
     )
     
+    # 为每个事件添加明确的标志
+    for event in events:
+        event['is_completed'] = False
+        event['event_type'] = event.get('event_type', '未知')
+        event['can_complete'] = True
+        event['can_delete'] = False
+    
+    # 获取已完成事件
+    include_completed = request.args.get('include_completed', 'true').lower() == 'true'
+    if include_completed:
+        completed_events = timetable_processor.get_completed_events(date_from=date_from, date_to=date_to)
+        # 为已完成事件添加明确的标志
+        for event in completed_events:
+            event['is_completed'] = True
+            event['event_type'] = event.get('event_type', '未知') + ' (已完成)'
+            event['can_complete'] = False
+            event['can_delete'] = True
+        events.extend(completed_events)
+    
     return jsonify(events)
 
 @app.route('/api/events/<date>')
 def get_events_for_date(date):
     """获取指定日期的事件"""
+    # 获取未完成事件
     events = timetable_processor.get_events_for_date(date)
+    
+    # 为每个事件添加明确的标志
+    for event in events:
+        event['is_completed'] = False
+        event['event_type'] = event.get('event_type', '未知')
+        event['can_complete'] = True
+        event['can_delete'] = False
+    
+    # 获取已完成事件
+    include_completed = request.args.get('include_completed', 'true').lower() == 'true'
+    if include_completed:
+        completed_events = timetable_processor.get_completed_events(date_from=date, date_to=date)
+        # 为已完成事件添加明确的标志
+        for event in completed_events:
+            event['is_completed'] = True
+            event['event_type'] = event.get('event_type', '未知') + ' (已完成)'
+            event['can_complete'] = False
+            event['can_delete'] = True
+        events.extend(completed_events)
+    
     return jsonify(events)
 
 @app.route('/api/events/completed', methods=['GET'])
@@ -79,22 +119,47 @@ def get_completed_events():
     
     # 获取已完成事件
     events = timetable_processor.get_completed_events(date_from, date_to, limit, offset)
+    
+    # 为每个事件添加明确的标志
+    for event in events:
+        event['is_completed'] = True
+        event['event_type'] = event.get('event_type', '未知') + ' (已完成)'
+        event['can_complete'] = False
+        event['can_delete'] = True
+    
     return jsonify(events)
 
 @app.route('/api/events/<int:event_id>/complete', methods=['POST'])
 def mark_event_completed(event_id):
     """标记事件为已完成"""
-    # 获取完成状态，默认为已完成
+    # 获取完成状态和备注信息
     data = request.get_json() or {}
     completed = data.get('completed', True)
+    completion_notes = data.get('completion_notes')
+    reflection_notes = data.get('reflection_notes')
     
     # 标记事件完成状态
-    success = timetable_processor.mark_event_completed(event_id, completed)
+    success = timetable_processor.mark_event_completed(
+        event_id, 
+        completed, 
+        completion_notes, 
+        reflection_notes
+    )
     
     if success:
         return jsonify({"status": "success", "message": "事件状态已更新"})
     else:
         return jsonify({"status": "error", "message": "更新事件状态失败"}), 400
+
+@app.route('/api/completed-tasks/<int:task_id>', methods=['DELETE'])
+def delete_completed_task(task_id):
+    """删除已完成的任务"""
+    success = timetable_processor.delete_completed_task(task_id)
+    
+    if success:
+        return jsonify({"status": "success", "message": "已完成任务已删除"})
+    else:
+        return jsonify({"status": "error", "message": "删除已完成任务失败"}), 400
 
 @app.route('/api/llm-query', methods=['POST'])
 def llm_query():
@@ -507,6 +572,7 @@ def create_templates():
 # 创建CSS样式
 def create_css():
     css = '''
+/* 全局样式 */
 * {
     margin: 0;
     padding: 0;
@@ -514,7 +580,7 @@ def create_css():
 }
 
 body {
-    font-family: 'Microsoft YaHei', Arial, sans-serif;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     line-height: 1.6;
     color: #333;
     background-color: #f5f5f5;
@@ -526,6 +592,40 @@ body {
     padding: 20px;
 }
 
+/* 通知样式 */
+.notification {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    padding: 12px 20px;
+    background-color: #4CAF50;
+    color: white;
+    border-radius: 4px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+    z-index: 1100;
+    opacity: 0;
+    transform: translateY(20px);
+    transition: opacity 0.3s, transform 0.3s;
+}
+
+.notification.show {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.notification.error {
+    background-color: #f44336;
+}
+
+.notification.warning {
+    background-color: #ff9800;
+}
+
+.notification.info {
+    background-color: #2196F3;
+}
+
+/* 头部样式 */
 header {
     display: flex;
     justify-content: space-between;
@@ -533,6 +633,11 @@ header {
     margin-bottom: 20px;
     padding-bottom: 10px;
     border-bottom: 1px solid #ddd;
+}
+
+h1 {
+    font-size: 24px;
+    color: #2c3e50;
 }
 
 .date-controls {
@@ -1579,10 +1684,10 @@ function renderMonthView() {
 // 渲染事件项
 function renderEventItem(event, container, options = {}) {
     const eventItem = document.createElement('div');
-    const isCompleted = event.completed === 1 || event.completed === '1';
+    const isCompleted = event.is_completed === true;
     
     // 设置事件项的类名
-    eventItem.className = `event-item type-${event.event_type.toLowerCase()}`;
+    eventItem.className = `event-item type-${event.event_type.toLowerCase().replace(/\s+\(已完成\)$/, '')}`;
     
     // 如果事件已完成，添加已完成样式
     if (isCompleted) {
@@ -1606,20 +1711,38 @@ function renderEventItem(event, container, options = {}) {
         showEventDetails(event);
     });
     
-    // 添加完成按钮
-    if (!options.hideCompleteButton) {
-        const completeButton = document.createElement('button');
-        completeButton.className = 'complete-button';
-        completeButton.textContent = isCompleted ? '✓' : '○';
-        completeButton.title = isCompleted ? '标记为未完成' : '标记为已完成';
-        
-        // 阻止事件冒泡，避免点击按钮时触发事件详情
-        completeButton.addEventListener('click', function(e) {
-            e.stopPropagation();
-            markEventCompleted(event.id, !isCompleted);
-        });
-        
-        eventItem.appendChild(completeButton);
+    // 添加按钮
+    if (!options.hideButtons) {
+        if (isCompleted) {
+            // 已完成事件 - 添加删除按钮
+            const deleteButton = document.createElement('button');
+            deleteButton.className = 'delete-button';
+            deleteButton.textContent = '×';
+            deleteButton.title = '删除事件';
+            
+            // 阻止事件冒泡，避免点击按钮时触发事件详情
+            deleteButton.addEventListener('click', function(e) {
+                e.stopPropagation();
+                // 直接调用删除函数，不显示确认对话框
+                deleteCompletedTask(event.id);
+            });
+            
+            eventItem.appendChild(deleteButton);
+        } else {
+            // 未完成事件 - 添加完成按钮
+            const completeButton = document.createElement('button');
+            completeButton.className = 'complete-button';
+            completeButton.textContent = '○';
+            completeButton.title = '标记为已完成';
+            
+            // 阻止事件冒泡，避免点击按钮时触发事件详情
+            completeButton.addEventListener('click', function(e) {
+                e.stopPropagation();
+                markEventCompleted(event.id, true);
+            });
+            
+            eventItem.appendChild(completeButton);
+        }
     }
     
     // 应用自定义样式
@@ -2107,24 +2230,106 @@ function showEventDetails(event) {
     }
     
     // 添加完成状态
-    const isCompleted = event.completed === 1 || event.completed === '1';
+    const isCompleted = event.is_completed === true;
     details.push(`<strong>状态:</strong> ${isCompleted ? '已完成' : '未完成'}`);
+    
+    // 如果是已完成事件，显示完成时间和备注
+    if (isCompleted && event.completion_date) {
+        details.push(`<strong>完成时间:</strong> ${event.completion_date}`);
+    }
+    
+    if (isCompleted && event.completion_notes) {
+        details.push(`<strong>完成备注:</strong> ${event.completion_notes}`);
+    }
+    
+    if (isCompleted && event.reflection_notes) {
+        details.push(`<strong>复盘笔记:</strong> ${event.reflection_notes}`);
+    }
     
     // 设置内容
     detailsContent.innerHTML = details.join('<br>');
     
-    // 添加完成/取消完成按钮
-    const completeButton = document.createElement('button');
-    completeButton.className = 'action-button';
-    completeButton.textContent = isCompleted ? '标记为未完成' : '标记为已完成';
-    completeButton.addEventListener('click', function() {
-        markEventCompleted(event.id, !isCompleted);
-    });
-    detailsContent.appendChild(document.createElement('br'));
-    detailsContent.appendChild(completeButton);
+    // 根据事件来源添加不同的按钮
+    if (isCompleted) {
+        // 已完成事件 - 添加删除按钮
+        const deleteButton = document.createElement('button');
+        deleteButton.className = 'action-button delete-button';
+        deleteButton.textContent = '删除事件';
+        deleteButton.addEventListener('click', function() {
+            // 直接调用删除函数，不显示确认对话框
+            deleteCompletedTask(event.id);
+        });
+        detailsContent.appendChild(document.createElement('br'));
+        detailsContent.appendChild(deleteButton);
+    } else {
+        // 未完成事件 - 添加标记为已完成按钮
+        const completeButton = document.createElement('button');
+        completeButton.className = 'action-button complete-button';
+        completeButton.textContent = '标记为已完成';
+        completeButton.addEventListener('click', function() {
+            markEventCompleted(event.id, true);
+        });
+        detailsContent.appendChild(document.createElement('br'));
+        detailsContent.appendChild(completeButton);
+    }
     
     // 显示详情面板
     detailsContainer.classList.remove('hidden');
+}
+
+// 删除已完成任务
+function deleteCompletedTask(taskId) {
+    // 显示一次确认对话框
+    if (!confirm('确定要删除这个已完成的任务吗？')) {
+        return;
+    }
+    
+    fetch(`/api/completed-tasks/${taskId}`, {
+        method: 'DELETE'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            // 关闭详情面板
+            document.getElementById('event-details').classList.add('hidden');
+            // 重新加载事件
+            loadEvents();
+            // 刷新已完成任务列表
+            renderCompletedView();
+            // 显示成功消息
+            showNotification('任务已成功删除');
+        } else {
+            alert('删除任务失败: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('删除任务时发生错误');
+    });
+}
+
+// 显示通知消息
+function showNotification(message, type = 'success') {
+    // 创建通知元素
+    const notification = document.createElement('div');
+    notification.className = `notification ${type}`;
+    notification.textContent = message;
+    
+    // 添加到页面
+    document.body.appendChild(notification);
+    
+    // 显示通知
+    setTimeout(() => {
+        notification.classList.add('show');
+    }, 10);
+    
+    // 自动隐藏通知
+    setTimeout(() => {
+        notification.classList.remove('show');
+        setTimeout(() => {
+            document.body.removeChild(notification);
+        }, 300);
+    }, 3000);
 }
 
 // 标记事件为已完成或未完成
@@ -2143,6 +2348,10 @@ function markEventCompleted(eventId, completed) {
             document.getElementById('event-details').classList.add('hidden');
             // 重新加载事件
             loadEvents();
+            // 刷新已完成任务列表
+            renderCompletedView();
+            // 显示成功消息
+            showNotification('事件已标记为已完成');
         } else {
             alert('更新事件状态失败: ' + data.message);
         }
@@ -2342,6 +2551,8 @@ function renderCompletedView() {
                 
                 // 添加事件
                 eventsByDate[date].forEach(event => {
+                    // 确保事件有is_completed标志
+                    event.is_completed = true;
                     renderEventItem(event, eventsList, { showTimeRange: true });
                 });
                 
