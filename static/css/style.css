@@ -641,7 +641,7 @@ select {
 }
 
 /* 事件详情样式 */
-#event-details {
+#event-details, #complete-task-dialog {
     position: fixed;
     top: 50%;
     left: 50%;
@@ -654,7 +654,7 @@ select {
     padding: 20px;
 }
 
-.event-details-header {
+.event-details-header, .dialog-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -663,8 +663,67 @@ select {
     border-bottom: 1px solid #ddd;
 }
 
-#event-details-content {
+#event-details-content, .dialog-content {
     line-height: 1.8;
+}
+
+.dialog-content .form-group {
+    margin-bottom: 15px;
+}
+
+.dialog-content label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: bold;
+    color: #333;
+}
+
+.dialog-content input[type="text"],
+.dialog-content textarea {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+.dialog-content textarea {
+    resize: vertical;
+    min-height: 60px;
+}
+
+.dialog-buttons {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 20px;
+}
+
+.dialog-buttons button {
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+.dialog-buttons .primary-button {
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+}
+
+.dialog-buttons .secondary-button {
+    background-color: #f0f0f0;
+    color: #333;
+    border: 1px solid #ddd;
+}
+
+.dialog-buttons .primary-button:hover {
+    background-color: #45a049;
+}
+
+.dialog-buttons .secondary-button:hover {
+    background-color: #e0e0e0;
 }
 
 .hidden {
@@ -685,7 +744,7 @@ select {
         grid-template-columns: 40px repeat(7, 1fr);
     }
     
-    #event-details {
+    #event-details, #complete-task-dialog {
         width: 90%;
     }
 }

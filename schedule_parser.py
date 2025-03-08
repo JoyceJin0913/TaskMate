@@ -59,6 +59,7 @@ class TimetableProcessor:
             title TEXT NOT NULL,
             date TEXT NOT NULL,
             time_range TEXT NOT NULL,
+            actual_time_range TEXT,
             event_type TEXT NOT NULL,
             deadline TEXT,
             importance INTEGER,
@@ -112,6 +113,16 @@ class TimetableProcessor:
         if 'recurrence_rule' not in columns:
             print("Adding recurrence_rule column to timetable")
             cursor.execute("ALTER TABLE timetable ADD COLUMN recurrence_rule TEXT")
+            conn.commit()
+        
+        # 获取completed_task表的列信息
+        cursor.execute("PRAGMA table_info(completed_task)")
+        completed_columns = [column[1] for column in cursor.fetchall()]
+        
+        # 检查actual_time_range列是否存在，如果不存在则添加
+        if 'actual_time_range' not in completed_columns:
+            print("Adding actual_time_range column to completed_task")
+            cursor.execute("ALTER TABLE completed_task ADD COLUMN actual_time_range TEXT")
             conn.commit()
         
         # 如果存在completed列，则迁移已完成的事件到completed_task表，然后删除该列
@@ -1964,7 +1975,7 @@ class TimetableProcessor:
                     
             return found
 
-    def mark_event_completed(self, event_id, completed=True, completion_notes=None, reflection_notes=None, event_date=None):
+    def mark_event_completed(self, event_id, completed=True, completion_notes=None, reflection_notes=None, event_date=None, actual_time_range=None):
         """
         标记事件为已完成或未完成。如果标记为已完成，则将事件移动到已完成任务表。
         
@@ -1974,6 +1985,7 @@ class TimetableProcessor:
             completion_notes (str, optional): 完成情况备注
             reflection_notes (str, optional): 复盘笔记
             event_date (str, optional): 事件日期，用于处理周期性事件
+            actual_time_range (str, optional): 实际发生的时间范围，格式为"HH:MM-HH:MM"
         
         Returns:
             bool: 操作是否成功
@@ -1981,7 +1993,7 @@ class TimetableProcessor:
         if completed:
             # 如果标记为已完成，则移动到已完成任务表
             print(f"标记事件 {event_id} 为已完成，日期: {event_date}")
-            return self.move_completed_event_to_history(event_id, completion_notes, reflection_notes, event_date)
+            return self.move_completed_event_to_history(event_id, completion_notes, reflection_notes, event_date, actual_time_range)
         else:
             # 如果标记为未完成，且事件已在已完成任务表中，则需要将其移回时间表
             # 这种情况在实际应用中可能较少发生，但为了完整性，我们也处理这种情况
@@ -2055,7 +2067,7 @@ class TimetableProcessor:
                 print("Marking event as not completed in CSV is not supported")
                 return False
     
-    def move_completed_event_to_history(self, event_id, completion_notes=None, reflection_notes=None, event_date=None):
+    def move_completed_event_to_history(self, event_id, completion_notes=None, reflection_notes=None, event_date=None, actual_time_range=None):
         """
         将事件从时间表移动到已完成任务表。
         
@@ -2064,6 +2076,7 @@ class TimetableProcessor:
             completion_notes (str, optional): 完成情况备注
             reflection_notes (str, optional): 复盘笔记
             event_date (str, optional): 事件日期，用于处理周期性事件
+            actual_time_range (str, optional): 实际发生的时间范围，格式为"HH:MM-HH:MM"
             
         Returns:
             bool: 操作是否成功
@@ -2138,11 +2151,11 @@ class TimetableProcessor:
                     # 仍然需要在已完成任务表中添加一条记录
                     cursor.execute('''
                     INSERT INTO completed_task (
-                        task_id, title, date, time_range, event_type, deadline, 
+                        task_id, title, date, time_range, actual_time_range, event_type, deadline, 
                         importance, completion_notes, reflection_notes
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     ''', (
-                        event_id, title, actual_date, time_range, event_type, deadline, 
+                        event_id, title, actual_date, time_range, actual_time_range, event_type, deadline, 
                         importance, completion_notes, reflection_notes
                     ))
                     print(f"已将周期性事件 {event_id} 的完成记录添加到已完成任务表，日期 {actual_date}")
@@ -2150,11 +2163,11 @@ class TimetableProcessor:
                     # 非周期性事件 - 从时间表中删除并添加到已完成任务表
                     cursor.execute('''
                     INSERT INTO completed_task (
-                        task_id, title, date, time_range, event_type, deadline, 
+                        task_id, title, date, time_range, actual_time_range, event_type, deadline, 
                         importance, completion_notes, reflection_notes
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     ''', (
-                        event_id, title, actual_date, time_range, event_type, deadline, 
+                        event_id, title, actual_date, time_range, actual_time_range, event_type, deadline, 
                         importance, completion_notes, reflection_notes
                     ))
                     print(f"已将事件 {event_id} 添加到已完成任务表，日期 {actual_date}")
@@ -2277,7 +2290,7 @@ class TimetableProcessor:
                 
                 # 添加到已完成任务CSV
                 completed_task_path = os.path.splitext(self.csv_path)[0] + '_completed.csv'
-                completed_fieldnames = [f for f in fieldnames if f != 'completed'] + ['completion_date', 'completion_notes', 'reflection_notes']
+                completed_fieldnames = [f for f in fieldnames if f != 'completed'] + ['completion_date', 'completion_notes', 'reflection_notes', 'actual_time_range']
                 
                 # 创建已完成任务CSV文件（如果不存在）
                 file_exists = os.path.isfile(completed_task_path)
@@ -2309,6 +2322,7 @@ class TimetableProcessor:
                     completed_event['completion_date'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                     completed_event['completion_notes'] = completion_notes or ''
                     completed_event['reflection_notes'] = reflection_notes or ''
+                    completed_event['actual_time_range'] = actual_time_range or ''
                     # 使用实际日期
                     completed_event['date'] = actual_date
                     writer.writerow(completed_event)
@@ -2448,7 +2462,7 @@ class TimetableProcessor:
                 
             return events
     
-    def mark_task_completed_with_history(self, event_id, completion_notes=None, reflection_notes=None):
+    def mark_task_completed_with_history(self, event_id, completion_notes=None, reflection_notes=None, actual_time_range=None):
         """
         将任务标记为已完成，并将其添加到历史记录中。
         
@@ -2456,12 +2470,13 @@ class TimetableProcessor:
             event_id (int): 任务ID
             completion_notes (str, optional): 完成情况备注
             reflection_notes (str, optional): 复盘笔记
+            actual_time_range (str, optional): 实际发生的时间范围，格式为"HH:MM-HH:MM"
             
         Returns:
             bool: 操作是否成功
         """
         # 直接调用move_completed_event_to_history方法
-        return self.move_completed_event_to_history(event_id, completion_notes, reflection_notes)
+        return self.move_completed_event_to_history(event_id, completion_notes, reflection_notes, None, actual_time_range)
     
     def add_task_reflection(self, task_id, reflection_notes):
         """

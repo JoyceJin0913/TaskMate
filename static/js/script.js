@@ -9,6 +9,9 @@ let processingEvents = new Set();
 // 用于跟踪已处理完成的事件ID，防止重复处理
 let completedEvents = new Set();
 
+// 用于存储当前正在完成的事件信息
+let currentCompletingEvent = null;
+
 // 用于跟踪加载状态
 let isLoadingEvents = false;
 let loadEventsRetryCount = 0;
@@ -21,30 +24,71 @@ document.addEventListener('DOMContentLoaded', function() {
     // 初始化视图
     initializeView();
     
-    // 绑定月份导航按钮事件
+    // 绑定视图切换按钮
+    document.getElementById('month-view').addEventListener('click', function() {
+        switchView('month');
+    });
+    
+    document.getElementById('week-view').addEventListener('click', function() {
+        switchView('week');
+    });
+    
+    document.getElementById('day-view').addEventListener('click', function() {
+        switchView('day');
+    });
+    
+    document.getElementById('list-view').addEventListener('click', function() {
+        switchView('list');
+    });
+    
+    document.getElementById('completed-view').addEventListener('click', function() {
+        switchView('completed');
+        renderCompletedView();
+    });
+    
+    // 绑定日期导航按钮
     document.getElementById('prev-month').addEventListener('click', previousMonth);
     document.getElementById('next-month').addEventListener('click', nextMonth);
-    
-    // 绑定周导航按钮事件
     document.getElementById('prev-week').addEventListener('click', previousWeek);
     document.getElementById('next-week').addEventListener('click', nextWeek);
-    
-    // 绑定日导航按钮事件
     document.getElementById('prev-day').addEventListener('click', previousDay);
     document.getElementById('next-day').addEventListener('click', nextDay);
     
-    // 视图切换按钮
-    document.querySelectorAll('.view-controls button').forEach(button => {
-        button.addEventListener('click', function() {
-            // 获取视图类型
-            const viewType = this.id.replace('-view', '');
-            switchView(viewType);
-        });
-    });
-    
-    // 关闭事件详情
+    // 绑定事件详情关闭按钮
     document.getElementById('close-details').addEventListener('click', function() {
         document.getElementById('event-details').classList.add('hidden');
+    });
+    
+    // 绑定完成任务对话框事件
+    document.getElementById('close-complete-dialog').addEventListener('click', function() {
+        document.getElementById('complete-task-dialog').classList.add('hidden');
+        // 清空当前正在完成的事件
+        currentCompletingEvent = null;
+        // 清空表单
+        clearCompleteTaskForm();
+    });
+
+    document.getElementById('cancel-complete').addEventListener('click', function() {
+        document.getElementById('complete-task-dialog').classList.add('hidden');
+        // 从处理集合中移除事件ID
+        if (currentCompletingEvent) {
+            processingEvents.delete(currentCompletingEvent.id);
+        }
+        // 清空当前正在完成的事件
+        currentCompletingEvent = null;
+        // 清空表单
+        clearCompleteTaskForm();
+    });
+
+    document.getElementById('submit-complete').addEventListener('click', submitCompleteTask);
+
+    // 为实际时间范围输入框添加验证
+    document.getElementById('actual-time-range').addEventListener('change', function() {
+        const value = this.value.trim();
+        if (value && !isValidTimeRange(value)) {
+            alert('时间范围格式无效，请使用HH:MM-HH:MM格式');
+            this.value = '';
+        }
     });
 });
 
@@ -600,7 +644,7 @@ function renderEventItem(event, container, options = {}) {
             });
             
             eventItem.appendChild(deleteButton);
-        } else {
+        } else if (event.can_complete !== false) {
             // 未完成事件 - 添加完成按钮
             const completeButton = document.createElement('button');
             completeButton.className = 'complete-button';
@@ -617,8 +661,8 @@ function renderEventItem(event, container, options = {}) {
                     return;
                 }
                 
-                // 调用标记为已完成函数
-                markEventCompleted(event.id, true);
+                // 调用标记为已完成函数，传递事件ID和日期
+                markEventCompleted(event.id, event.date);
             });
             
             eventItem.appendChild(completeButton);
@@ -1599,5 +1643,128 @@ function renderCompletedView() {
             errorMessage.textContent = '加载已完成任务时发生错误';
             completedGrid.appendChild(errorMessage);
         });
+}
+
+// 清空完成任务表单
+function clearCompleteTaskForm() {
+    document.getElementById('actual-time-range').value = '';
+    document.getElementById('completion-notes').value = '';
+    document.getElementById('reflection-notes').value = '';
+}
+
+// 标记事件为已完成
+function markEventCompleted(eventId, eventDate) {
+    // 如果该事件正在处理中，则忽略请求
+    if (processingEvents.has(eventId)) {
+        console.log(`事件 ${eventId} 正在处理中，忽略重复请求`);
+        return;
+    }
+
+    // 将事件ID添加到处理集合中
+    processingEvents.add(eventId);
+
+    // 保存当前正在完成的事件信息
+    currentCompletingEvent = {
+        id: eventId,
+        date: eventDate
+    };
+
+    // 显示完成任务对话框
+    document.getElementById('complete-task-dialog').classList.remove('hidden');
+}
+
+// 提交完成任务
+function submitCompleteTask() {
+    if (!currentCompletingEvent) {
+        console.error('没有正在完成的事件');
+        return;
+    }
+
+    const actualTimeRange = document.getElementById('actual-time-range').value.trim();
+    const completionNotes = document.getElementById('completion-notes').value.trim();
+    const reflectionNotes = document.getElementById('reflection-notes').value.trim();
+
+    // 验证时间范围格式（如果用户输入了内容）
+    if (actualTimeRange && !isValidTimeRange(actualTimeRange)) {
+        alert('时间范围格式无效，请使用HH:MM-HH:MM格式');
+        return;
+    }
+
+    // 准备请求数据
+    const requestData = {
+        completion_notes: completionNotes,
+        reflection_notes: reflectionNotes,
+        event_date: currentCompletingEvent.date,
+        actual_time_range: actualTimeRange
+    };
+
+    // 发送完成请求
+    fetch(`/api/events/${currentCompletingEvent.id}/complete`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(requestData)
+    })
+    .then(response => {
+        console.log(`事件 ${currentCompletingEvent.id} 的完成请求已发送，状态码: ${response.status}`);
+        return response.json();
+    })
+    .then(data => {
+        // 从处理集合中移除事件ID
+        processingEvents.delete(currentCompletingEvent.id);
+
+        if (data.status === 'success') {
+            // 显示成功消息
+            showNotification('任务已标记为完成');
+
+            // 将事件ID添加到已完成集合中
+            completedEvents.add(currentCompletingEvent.id);
+
+            // 隐藏对话框
+            document.getElementById('complete-task-dialog').classList.add('hidden');
+
+            // 清空表单
+            clearCompleteTaskForm();
+
+            // 延迟一段时间后重新加载事件，确保后端处理完成
+            setTimeout(() => {
+                // 重新加载事件
+                loadEvents();
+                // 刷新已完成任务列表
+                renderCompletedView();
+            }, 500);
+        } else {
+            // 处理失败，从已处理完成集合中移除事件ID
+            completedEvents.delete(currentCompletingEvent.id);
+            alert('标记任务完成失败: ' + data.message);
+        }
+    })
+    .catch(error => {
+        // 从处理集合中移除事件ID
+        processingEvents.delete(currentCompletingEvent.id);
+        // 处理失败，从已处理完成集合中移除事件ID
+        completedEvents.delete(currentCompletingEvent.id);
+
+        console.error(`事件 ${currentCompletingEvent.id} 标记完成出错:`, error);
+        alert('标记任务完成时发生错误');
+    })
+    .finally(() => {
+        // 清空当前正在完成的事件
+        currentCompletingEvent = null;
+    });
+}
+
+// 验证时间范围格式
+function isValidTimeRange(timeRange) {
+    if (!timeRange) return true;
+    const pattern = /^([0-1][0-9]|2[0-3]):[0-5][0-9]-([0-1][0-9]|2[0-3]):[0-5][0-9]$/;
+    if (!pattern.test(timeRange)) return false;
+    const [start, end] = timeRange.split('-');
+    const [startHour, startMin] = start.split(':').map(Number);
+    const [endHour, endMin] = end.split(':').map(Number);
+    const startMinutes = startHour * 60 + startMin;
+    const endMinutes = endHour * 60 + endMin;
+    return startMinutes < endMinutes;
 }
     
