@@ -1052,7 +1052,8 @@ function submitLLMQuery() {
         show_summary: showSummary,
         show_changes: showChanges,
         show_events: showEvents,
-        show_unchanged: showUnchanged
+        show_unchanged: showUnchanged,
+        query_type: document.querySelector('input[name="query_type"]:checked').value
     };
     
     // 发送API请求

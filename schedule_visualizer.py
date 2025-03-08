@@ -111,6 +111,7 @@ def llm_query():
         show_events = data.get('show_events', False)
         show_unchanged = data.get('show_unchanged', False)
         limit = data.get('limit', 50)
+        query_type = data.get('query_type', 'future_planning')  # 新增：查询类型，默认为未来规划
         
         # 获取当前事件列表
         current_events = timetable_processor.format_events_as_llm_output(include_header=False, limit=limit)
@@ -124,75 +125,104 @@ def llm_query():
             'error': None
         }
         
-        # 获取修改前的所有事件（如果需要显示变更）
-        if show_changes:
-            # 获取所有事件，不受limit限制，确保能够正确比较变更
-            old_events = timetable_processor.get_all_events(limit=None)
-        
-        # 处理事件并更新数据库
-        try:
-            if recurrence:
-                # 如果设置了重复模式，使用 process_recurring_events 方法
-                summary = timetable_processor.process_recurring_events(
-                    response, 
-                    recurrence_rule=recurrence,
-                    end_date=end_date,
-                    handle_conflicts='error'
-                )
-            else:
-                # 否则使用普通的 process_events 方法
-                summary = timetable_processor.process_events(response)
-            
-            # 添加处理摘要到结果，将字典转换为格式化的字符串
-            if show_summary:
-                summary_str = "处理摘要：\n"
-                summary_str += f"新增事件: {summary['added']}\n"
-                summary_str += f"修改事件: {summary['modified']}\n"
-                summary_str += f"删除事件: {summary['deleted']}\n"
-                summary_str += f"未变化事件: {summary['unchanged']}\n"
-                summary_str += f"跳过事件: {summary['skipped']}\n"
-                
-                if summary['errors']:
-                    summary_str += "\n错误信息:\n"
-                    for i, error in enumerate(summary['errors']):
-                        summary_str += f"{i+1}. {error}\n"
-                
-                if summary['warnings']:
-                    summary_str += "\n警告信息:\n"
-                    for i, warning in enumerate(summary['warnings']):
-                        summary_str += f"{i+1}. {warning}\n"
-                
-                result['summary'] = summary_str
-            
-            # 添加变更详情到结果
+        # 根据查询类型处理请求
+        if query_type == 'future_planning':
+            # 获取修改前的所有事件（如果需要显示变更）
             if show_changes:
-                # 获取所有事件，不受limit限制，确保能够正确比较变更
-                new_events = timetable_processor.get_all_events(limit=None)
-                
-                # 获取变更详情，但在显示时可以应用limit
-                changes = timetable_processor.format_events_with_changes(
-                    old_events, 
-                    new_events, 
-                    include_header=True, 
-                    show_unchanged=show_unchanged,
-                    limit=limit  # 只在显示时应用limit
-                )
-                result['changes'] = changes
+                old_events = timetable_processor.get_all_events(limit=None)
             
-            # 添加当前所有事件到结果
-            if show_events:
-                formatted_output = timetable_processor.format_events_as_llm_output(limit=limit)
-                result['events'] = formatted_output
+            # 处理事件并更新数据库
+            try:
+                if recurrence:
+                    # 如果设置了重复模式，使用 process_recurring_events 方法
+                    summary = timetable_processor.process_recurring_events(
+                        response, 
+                        recurrence_rule=recurrence,
+                        end_date=end_date,
+                        handle_conflicts='error'
+                    )
+                else:
+                    # 否则使用普通的 process_events 方法
+                    summary = timetable_processor.process_events(response)
                 
-        except ValueError as e:
-            error_message = str(e)
-            result['error'] = error_message
-            
-            # 添加提示信息
-            if "conflict" in error_message.lower():
-                result['error'] += "\n提示：事件时间冲突。您可以修改事件时间或删除冲突的事件。"
-            if "date" in error_message.lower() or "time" in error_message.lower():
-                result['error'] += "\n提示：日期或时间格式错误。请确保日期格式为YYYY-MM-DD，时间格式为HH:MM。"
+                # 添加处理摘要到结果
+                if show_summary:
+                    summary_str = "处理摘要：\n"
+                    summary_str += f"新增事件: {summary['added']}\n"
+                    summary_str += f"修改事件: {summary['modified']}\n"
+                    summary_str += f"删除事件: {summary['deleted']}\n"
+                    summary_str += f"未变化事件: {summary['unchanged']}\n"
+                    summary_str += f"跳过事件: {summary['skipped']}\n"
+                    
+                    if summary['errors']:
+                        summary_str += "\n错误信息:\n"
+                        for i, error in enumerate(summary['errors']):
+                            summary_str += f"{i+1}. {error}\n"
+                    
+                    if summary['warnings']:
+                        summary_str += "\n警告信息:\n"
+                        for i, warning in enumerate(summary['warnings']):
+                            summary_str += f"{i+1}. {warning}\n"
+                    
+                    result['summary'] = summary_str
+                
+                # 添加变更详情到结果
+                if show_changes:
+                    new_events = timetable_processor.get_all_events(limit=None)
+                    changes = timetable_processor.format_events_with_changes(
+                        old_events, 
+                        new_events, 
+                        include_header=True, 
+                        show_unchanged=show_unchanged,
+                        limit=limit
+                    )
+                    result['changes'] = changes
+                
+                # 添加当前所有事件到结果
+                if show_events:
+                    formatted_output = timetable_processor.format_events_as_llm_output(limit=limit)
+                    result['events'] = formatted_output
+                    
+            except ValueError as e:
+                error_message = str(e)
+                result['error'] = error_message
+                
+                # 添加提示信息
+                if "conflict" in error_message.lower():
+                    result['error'] += "\n提示：事件时间冲突。您可以修改事件时间或删除冲突的事件。"
+                if "date" in error_message.lower() or "time" in error_message.lower():
+                    result['error'] += "\n提示：日期或时间格式错误。请确保日期格式为YYYY-MM-DD，时间格式为HH:MM。"
+        
+        elif query_type == 'historical_review':
+            # 处理历史复盘请求
+            try:
+                # 从LLM响应中提取事件
+                events = timetable_processor.extract_events(response)
+                
+                if not events:
+                    raise ValueError("未能从响应中提取到有效的事件信息")
+                
+                # 对于每个事件，添加到历史复盘数据库
+                for event in events:
+                    # 获取事件ID（假设在响应中包含了事件ID）
+                    event_id = event.get('id')
+                    if not event_id:
+                        continue
+                    
+                    # 添加到历史复盘数据库
+                    success = timetable_processor.mark_task_completed_with_history(
+                        event_id,
+                        completion_notes=prompt,  # 使用用户输入作为完成情况备注
+                        reflection_notes=None  # 初始时没有复盘笔记
+                    )
+                    
+                    if success:
+                        result['message'] = "已成功添加到历史复盘记录"
+                    else:
+                        result['error'] = "添加历史复盘记录失败"
+                
+            except ValueError as e:
+                result['error'] = f"处理历史复盘请求时出错: {str(e)}"
         
         return jsonify(result)
         
@@ -201,6 +231,78 @@ def llm_query():
             'response': None,
             'error': f"处理请求时发生错误: {str(e)}"
         })
+
+@app.route('/api/task-reflection', methods=['POST'])
+def add_task_reflection():
+    """为已完成的任务添加复盘笔记"""
+    try:
+        data = request.json
+        task_id = data.get('task_id')
+        reflection_notes = data.get('reflection_notes')
+        
+        if not task_id or not reflection_notes:
+            return jsonify({
+                'status': 'error',
+                'message': '缺少必要的参数'
+            }), 400
+        
+        success = timetable_processor.add_task_reflection(task_id, reflection_notes)
+        
+        if success:
+            return jsonify({
+                'status': 'success',
+                'message': '复盘笔记已添加'
+            })
+        else:
+            return jsonify({
+                'status': 'error',
+                'message': '添加复盘笔记失败'
+            }), 400
+            
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'message': f'处理请求时发生错误: {str(e)}'
+        }), 500
+
+@app.route('/api/task-history', methods=['GET'])
+def get_task_history():
+    """获取任务历史记录"""
+    try:
+        # 获取查询参数
+        date_from = request.args.get('date_from')
+        date_to = request.args.get('date_to')
+        limit = request.args.get('limit')
+        offset = request.args.get('offset', 0)
+        
+        # 转换limit和offset为整数（如果提供）
+        if limit:
+            try:
+                limit = int(limit)
+            except ValueError:
+                limit = None
+        
+        if offset:
+            try:
+                offset = int(offset)
+            except ValueError:
+                offset = 0
+        
+        # 获取历史记录
+        history = timetable_processor.get_task_history(
+            date_from=date_from,
+            date_to=date_to,
+            limit=limit,
+            offset=offset
+        )
+        
+        return jsonify(history)
+        
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'message': f'获取历史记录时发生错误: {str(e)}'
+        }), 500
 
 # 确保templates和static目录存在
 def ensure_directories():
@@ -280,8 +382,19 @@ def create_templates():
                     <h2>LLM日程规划助手</h2>
                     <div class="llm-form">
                         <div class="form-group">
-                            <label for="llm-prompt">请输入您的日程安排需求：</label>
-                            <textarea id="llm-prompt" rows="4" placeholder="例如：明天下午三点要开会，需要提前准备一个小时"></textarea>
+                            <label>选择操作模式：</label>
+                            <div class="radio-group">
+                                <input type="radio" id="mode-future-planning" name="query_type" value="future_planning" checked>
+                                <label for="mode-future-planning">未来规划</label>
+                                
+                                <input type="radio" id="mode-historical-review" name="query_type" value="historical_review">
+                                <label for="mode-historical-review">历史复盘</label>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="llm-prompt">请输入您的需求：</label>
+                            <textarea id="llm-prompt" rows="4" placeholder="未来规划示例：明天下午三点要开会，需要提前准备一个小时&#10;历史复盘示例：记录完成了周二的项目评审会议"></textarea>
                         </div>
                         
                         <div class="form-group">
@@ -856,12 +969,31 @@ button:hover {
     flex-wrap: wrap;
     gap: 15px;
     margin-top: 5px;
+    padding: 10px;
+    background-color: #f5f5f5;
+    border-radius: 4px;
 }
 
-.radio-group label, .checkbox-group label {
+.radio-group input[type="radio"] {
+    margin-right: 5px;
+}
+
+.radio-group label {
     font-weight: normal;
     margin-bottom: 0;
     cursor: pointer;
+    padding: 5px 10px;
+    border-radius: 3px;
+    transition: background-color 0.2s;
+}
+
+.radio-group label:hover {
+    background-color: #e0e0e0;
+}
+
+.radio-group input[type="radio"]:checked + label {
+    background-color: #4CAF50;
+    color: white;
 }
 
 select {
@@ -2086,7 +2218,8 @@ function submitLLMQuery() {
         show_summary: showSummary,
         show_changes: showChanges,
         show_events: showEvents,
-        show_unchanged: showUnchanged
+        show_unchanged: showUnchanged,
+        query_type: document.querySelector('input[name="query_type"]:checked').value
     };
     
     // 发送API请求

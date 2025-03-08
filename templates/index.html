@@ -67,8 +67,19 @@
                     <h2>LLM日程规划助手</h2>
                     <div class="llm-form">
                         <div class="form-group">
-                            <label for="llm-prompt">请输入您的日程安排需求：</label>
-                            <textarea id="llm-prompt" rows="4" placeholder="例如：明天下午三点要开会，需要提前准备一个小时"></textarea>
+                            <label>选择操作模式：</label>
+                            <div class="radio-group">
+                                <input type="radio" id="mode-future-planning" name="query_type" value="future_planning" checked>
+                                <label for="mode-future-planning">未来规划</label>
+                                
+                                <input type="radio" id="mode-historical-review" name="query_type" value="historical_review">
+                                <label for="mode-historical-review">历史复盘</label>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="llm-prompt">请输入您的需求：</label>
+                            <textarea id="llm-prompt" rows="4" placeholder="未来规划示例：明天下午三点要开会，需要提前准备一个小时&#10;历史复盘示例：记录完成了周二的项目评审会议"></textarea>
                         </div>
                         
                         <div class="form-group">

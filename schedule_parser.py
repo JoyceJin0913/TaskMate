@@ -51,6 +51,24 @@ class TimetableProcessor:
         )
         ''')
         
+        # 创建completed_task表用于存储历史复盘任务
+        cursor.execute('''
+        CREATE TABLE IF NOT EXISTS completed_task (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            task_id INTEGER NOT NULL,
+            title TEXT NOT NULL,
+            date TEXT NOT NULL,
+            time_range TEXT NOT NULL,
+            event_type TEXT NOT NULL,
+            deadline TEXT,
+            importance INTEGER,
+            completion_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            completion_notes TEXT,
+            reflection_notes TEXT,
+            FOREIGN KEY (task_id) REFERENCES timetable(id)
+        )
+        ''')
+        
         # 检查并添加recurrence_rule列（如果不存在）
         self._check_and_update_table_structure(conn)
         
@@ -1896,3 +1914,176 @@ class TimetableProcessor:
                 events = events[:limit]
                 
             return events
+
+    def mark_task_completed_with_history(self, event_id, completion_notes=None, reflection_notes=None):
+        """
+        将任务标记为已完成，并将其添加到历史记录中。
+        
+        Args:
+            event_id (int): 任务ID
+            completion_notes (str, optional): 完成情况备注
+            reflection_notes (str, optional): 复盘笔记
+            
+        Returns:
+            bool: 操作是否成功
+        """
+        if self.database_type == "sqlite":
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            
+            try:
+                # 首先获取任务详情
+                cursor.execute('''
+                SELECT title, date, time_range, event_type, deadline, importance
+                FROM timetable WHERE id = ?
+                ''', (event_id,))
+                
+                task = cursor.fetchone()
+                if not task:
+                    raise ValueError(f"Task with ID {event_id} not found")
+                
+                # 将任务标记为已完成
+                cursor.execute(
+                    'UPDATE timetable SET completed = 1, last_updated = CURRENT_TIMESTAMP WHERE id = ?',
+                    (event_id,)
+                )
+                
+                # 添加到历史记录
+                cursor.execute('''
+                INSERT INTO completed_task (
+                    task_id, title, date, time_range, event_type, deadline, 
+                    importance, completion_notes, reflection_notes
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ''', (
+                    event_id, task[0], task[1], task[2], task[3], task[4], 
+                    task[5], completion_notes, reflection_notes
+                ))
+                
+                conn.commit()
+                success = cursor.rowcount > 0
+                conn.close()
+                return success
+                
+            except Exception as e:
+                print(f"Error marking task as completed: {e}")
+                conn.close()
+                return False
+                
+    def add_task_reflection(self, task_id, reflection_notes):
+        """
+        为已完成的任务添加或更新复盘笔记。
+        
+        Args:
+            task_id (int): 任务ID
+            reflection_notes (str): 复盘笔记
+            
+        Returns:
+            bool: 操作是否成功
+        """
+        if self.database_type == "sqlite":
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            
+            try:
+                # 更新复盘笔记
+                cursor.execute('''
+                UPDATE completed_task 
+                SET reflection_notes = ?
+                WHERE task_id = ?
+                ''', (reflection_notes, task_id))
+                
+                conn.commit()
+                success = cursor.rowcount > 0
+                conn.close()
+                return success
+                
+            except Exception as e:
+                print(f"Error adding reflection notes: {e}")
+                conn.close()
+                return False
+                
+    def get_task_history(self, date_from=None, date_to=None, limit=None, offset=0):
+        """
+        获取任务完成历史记录。
+        
+        Args:
+            date_from (str, optional): 开始日期，格式为'YYYY-MM-DD'
+            date_to (str, optional): 结束日期，格式为'YYYY-MM-DD'
+            limit (int, optional): 最大返回记录数
+            offset (int, optional): 跳过的记录数
+            
+        Returns:
+            list: 历史记录列表
+        """
+        if self.database_type == "sqlite":
+            conn = sqlite3.connect(self.db_path)
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            
+            query = '''
+            SELECT * FROM completed_task 
+            WHERE 1=1
+            '''
+            params = []
+            
+            # 添加日期范围过滤
+            if date_from:
+                query += ' AND date >= ?'
+                params.append(date_from)
+            
+            if date_to:
+                query += ' AND date <= ?'
+                params.append(date_to)
+            
+            # 添加排序
+            query += ' ORDER BY completion_date DESC'
+            
+            # 添加分页
+            if limit is not None:
+                query += ' LIMIT ?'
+                params.append(limit)
+                
+                if offset:
+                    query += ' OFFSET ?'
+                    params.append(offset)
+            
+            cursor.execute(query, params)
+            history = [dict(row) for row in cursor.fetchall()]
+            
+            conn.close()
+            return history
+            
+        elif self.database_type == "csv":
+            # 实现CSV文件的历史记录获取逻辑
+            # 这里需要根据CSV文件的存储格式来实现
+            raise NotImplementedError("CSV文件的历史记录获取逻辑尚未实现")
+
+    def get_task_reflection(self, task_id):
+        """
+        获取特定任务的复盘记录。
+        
+        Args:
+            task_id (int): 任务ID
+            
+        Returns:
+            dict: 任务的复盘记录
+        """
+        if self.database_type == "sqlite":
+            conn = sqlite3.connect(self.db_path)
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            
+            cursor.execute('''
+            SELECT * FROM completed_task 
+            WHERE task_id = ?
+            ''', (task_id,))
+            
+            result = cursor.fetchone()
+            reflection = dict(result) if result else None
+            
+            conn.close()
+            return reflection
+        elif self.database_type == "csv":
+            # 实现CSV文件的复盘记录获取逻辑
+            # 这里需要根据CSV文件的存储格式来实现
+            raise NotImplementedError("CSV文件的复盘记录获取逻辑尚未实现")

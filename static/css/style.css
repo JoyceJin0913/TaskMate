@@ -461,12 +461,31 @@ button:hover {
     flex-wrap: wrap;
     gap: 15px;
     margin-top: 5px;
+    padding: 10px;
+    background-color: #f5f5f5;
+    border-radius: 4px;
 }
 
-.radio-group label, .checkbox-group label {
+.radio-group input[type="radio"] {
+    margin-right: 5px;
+}
+
+.radio-group label {
     font-weight: normal;
     margin-bottom: 0;
     cursor: pointer;
+    padding: 5px 10px;
+    border-radius: 3px;
+    transition: background-color 0.2s;
+}
+
+.radio-group label:hover {
+    background-color: #e0e0e0;
+}
+
+.radio-group input[type="radio"]:checked + label {
+    background-color: #4CAF50;
+    color: white;
 }
 
 select {
