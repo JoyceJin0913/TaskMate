@@ -3,6 +3,10 @@ CSS生成器模块，负责生成CSS样式文件
 """
 
 import os
+import sys
+
+# 添加项目根目录到Python路径
+sys.path.insert(0, os.path.abspath(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))))
 
 class CSSGenerator:
     """CSS生成器，负责生成CSS样式文件"""
@@ -39,6 +43,10 @@ class CSSGenerator:
     --warning-color: #ffc107;
     --danger-color: #dc3545;
     --info-color: #17a2b8;
+    --timeline-bg: #f5f5f5;
+    --timeline-line: #ddd;
+    --timeline-hour: #888;
+    --timeline-now: #ff6b6b;
 }
 
 * {
@@ -251,6 +259,15 @@ button:hover {
     gap: 10px;
 }
 
+.calendar-day-header {
+    text-align: center;
+    font-weight: bold;
+    padding: 10px;
+    background-color: var(--primary-color);
+    color: white;
+    border-radius: 4px;
+}
+
 .calendar-day {
     min-height: 120px;
     border: 1px solid var(--border-color);
@@ -311,7 +328,9 @@ button:hover {
 }
 
 /* 列表视图 */
-.list-header {
+.list-header,
+.week-header,
+.day-header {
     margin-bottom: 20px;
 }
 
@@ -414,11 +433,133 @@ button:hover {
     background-color: #c82333;
 }
 
+/* 周视图和日视图 */
+.week-timeline,
+.day-timeline {
+    display: flex;
+    flex-direction: column;
+    background-color: var(--timeline-bg);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.timeline-header {
+    display: flex;
+    border-bottom: 1px solid var(--timeline-line);
+}
+
+.timeline-header .time-column {
+    width: 60px;
+    border-right: 1px solid var(--timeline-line);
+}
+
+.timeline-header .day-column {
+    flex: 1;
+    text-align: center;
+    padding: 10px;
+    font-weight: bold;
+    border-right: 1px solid var(--timeline-line);
+}
+
+.timeline-header .day-column:last-child {
+    border-right: none;
+}
+
+.timeline-header .day-column.today {
+    background-color: rgba(74, 111, 165, 0.1);
+}
+
+.timeline-body {
+    display: flex;
+    position: relative;
+}
+
+.timeline-hours {
+    width: 60px;
+    border-right: 1px solid var(--timeline-line);
+}
+
+.timeline-hour {
+    height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-bottom: 1px solid var(--timeline-line);
+    color: var(--timeline-hour);
+    font-size: 0.8rem;
+}
+
+.timeline-days {
+    display: flex;
+    flex: 1;
+}
+
+.timeline-day {
+    flex: 1;
+    border-right: 1px solid var(--timeline-line);
+    position: relative;
+}
+
+.timeline-day:last-child {
+    border-right: none;
+}
+
+.timeline-day.today {
+    background-color: rgba(74, 111, 165, 0.05);
+}
+
+.timeline-event {
+    position: absolute;
+    left: 5px;
+    right: 5px;
+    padding: 5px;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    overflow: hidden;
+    cursor: pointer;
+    z-index: 1;
+}
+
+.timeline-event.task {
+    background-color: var(--secondary-color);
+    color: white;
+}
+
+.timeline-event.fixed {
+    background-color: var(--accent-color);
+    color: white;
+}
+
+.timeline-event.completed {
+    background-color: var(--success-color);
+    color: white;
+    text-decoration: line-through;
+}
+
+.timeline-now-line {
+    position: absolute;
+    left: 0;
+    right: 0;
+    border-top: 2px dashed var(--timeline-now);
+    z-index: 2;
+}
+
+.timeline-now-label {
+    position: absolute;
+    left: 5px;
+    background-color: var(--timeline-now);
+    color: white;
+    padding: 2px 5px;
+    border-radius: 3px;
+    font-size: 0.7rem;
+    z-index: 3;
+}
+
 /* 时间复盘 */
 .review-header {
     display: flex;
-    justify-content: space-between;
-    align-items: center;
+    flex-direction: column;
+    gap: 15px;
     margin-bottom: 20px;
 }
 
@@ -438,10 +579,117 @@ button:hover {
     border-radius: 4px;
 }
 
+.review-tabs {
+    display: flex;
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.review-tabs button {
+    background-color: transparent;
+    color: var(--text-color);
+    border: 1px solid var(--border-color);
+    padding: 8px 15px;
+}
+
+.review-tabs button.active {
+    background-color: var(--primary-color);
+    color: white;
+    border-color: var(--primary-color);
+}
+
 .time-review-grid {
     display: flex;
     flex-direction: column;
     gap: 20px;
+}
+
+.event-notes {
+    margin-top: 10px;
+    padding: 10px;
+    background-color: #f9f9f9;
+    border-radius: 4px;
+}
+
+.completion-notes,
+.reflection-notes {
+    margin-bottom: 10px;
+}
+
+.add-reflection-btn {
+    background-color: var(--info-color);
+    color: white;
+    padding: 5px 10px;
+    font-size: 0.8rem;
+}
+
+.add-reflection-btn:hover {
+    background-color: #138496;
+}
+
+/* 时间分析 */
+.analysis-charts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+    margin-top: 20px;
+}
+
+.chart-container {
+    flex: 1;
+    min-width: 300px;
+    background-color: white;
+    padding: 15px;
+    border-radius: 8px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+.chart-container h3 {
+    margin-bottom: 15px;
+    color: var(--primary-color);
+    text-align: center;
+}
+
+/* 生产力报告 */
+.productivity-stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+    margin-bottom: 30px;
+}
+
+.stat-card {
+    flex: 1;
+    min-width: 200px;
+    background-color: white;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    text-align: center;
+}
+
+.stat-card h3 {
+    margin-bottom: 10px;
+    color: var(--primary-color);
+}
+
+.stat-value {
+    font-size: 2rem;
+    font-weight: bold;
+    color: var(--secondary-color);
+}
+
+.productivity-trends {
+    background-color: white;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+.productivity-trends h3 {
+    margin-bottom: 15px;
+    color: var(--primary-color);
+    text-align: center;
 }
 
 /* 模态框 */
@@ -523,11 +771,13 @@ footer {
     
     nav ul {
         margin-top: 15px;
+        flex-wrap: wrap;
     }
     
     nav ul li {
         margin-left: 0;
         margin-right: 15px;
+        margin-bottom: 10px;
     }
     
     .form-options {
@@ -551,6 +801,20 @@ footer {
     
     .date-filter {
         flex-wrap: wrap;
+    }
+    
+    .timeline-header .day-column {
+        padding: 5px;
+        font-size: 0.8rem;
+    }
+    
+    .timeline-event {
+        font-size: 0.7rem;
+    }
+    
+    .analysis-charts,
+    .productivity-stats {
+        flex-direction: column;
     }
 }
 """

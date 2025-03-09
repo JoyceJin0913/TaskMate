@@ -3,6 +3,10 @@ HTML模板生成器模块，负责生成HTML模板
 """
 
 import os
+import sys
+
+# 添加项目根目录到Python路径
+sys.path.insert(0, os.path.abspath(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))))
 
 class HTMLGenerator:
     """HTML模板生成器，负责生成HTML模板"""
@@ -41,6 +45,8 @@ class HTMLGenerator:
                 <ul>
                     <li><a href="#calendar-view" class="active" data-view="calendar">日历视图</a></li>
                     <li><a href="#list-view" data-view="list">列表视图</a></li>
+                    <li><a href="#week-view" data-view="week">周视图</a></li>
+                    <li><a href="#day-view" data-view="day">日视图</a></li>
                     <li><a href="#time-review" data-view="time-review">时间复盘</a></li>
                 </ul>
             </nav>
@@ -120,6 +126,34 @@ class HTMLGenerator:
                 </div>
             </section>
             
+            <!-- 周视图 -->
+            <section id="week-view" class="view-section">
+                <div class="week-header">
+                    <div class="date-navigation">
+                        <button id="prev-week-timeline"><i class="fas fa-chevron-left"></i> 上一周</button>
+                        <h2 id="current-week-timeline">2024年第10周 (3月4日-3月10日)</h2>
+                        <button id="next-week-timeline">下一周 <i class="fas fa-chevron-right"></i></button>
+                    </div>
+                </div>
+                <div class="week-timeline" id="week-timeline">
+                    <!-- 周视图内容将通过JavaScript动态生成 -->
+                </div>
+            </section>
+            
+            <!-- 日视图 -->
+            <section id="day-view" class="view-section">
+                <div class="day-header">
+                    <div class="date-navigation">
+                        <button id="prev-day"><i class="fas fa-chevron-left"></i> 前一天</button>
+                        <h2 id="current-day">2024年3月8日 星期五</h2>
+                        <button id="next-day">后一天 <i class="fas fa-chevron-right"></i></button>
+                    </div>
+                </div>
+                <div class="day-timeline" id="day-timeline">
+                    <!-- 日视图内容将通过JavaScript动态生成 -->
+                </div>
+            </section>
+            
             <!-- 时间复盘 -->
             <section id="time-review" class="view-section">
                 <div class="review-header">
@@ -131,9 +165,48 @@ class HTMLGenerator:
                         <input type="date" id="review-date-to">
                         <button id="apply-date-filter">应用</button>
                     </div>
+                    <div class="review-tabs">
+                        <button id="tab-completed-events" class="active">已完成事件</button>
+                        <button id="tab-time-analysis">时间分析</button>
+                        <button id="tab-productivity">生产力报告</button>
+                    </div>
                 </div>
                 <div class="time-review-grid" id="time-review-grid">
                     <!-- 时间复盘内容将通过JavaScript动态生成 -->
+                </div>
+                <div class="time-analysis" id="time-analysis" style="display: none;">
+                    <!-- 时间分析内容将通过JavaScript动态生成 -->
+                    <div class="analysis-charts">
+                        <div class="chart-container">
+                            <h3>每日时间分配</h3>
+                            <canvas id="daily-time-chart"></canvas>
+                        </div>
+                        <div class="chart-container">
+                            <h3>任务类型分布</h3>
+                            <canvas id="task-type-chart"></canvas>
+                        </div>
+                    </div>
+                </div>
+                <div class="productivity-report" id="productivity-report" style="display: none;">
+                    <!-- 生产力报告内容将通过JavaScript动态生成 -->
+                    <div class="productivity-stats">
+                        <div class="stat-card">
+                            <h3>完成率</h3>
+                            <div class="stat-value" id="completion-rate">0%</div>
+                        </div>
+                        <div class="stat-card">
+                            <h3>准时率</h3>
+                            <div class="stat-value" id="on-time-rate">0%</div>
+                        </div>
+                        <div class="stat-card">
+                            <h3>专注时间</h3>
+                            <div class="stat-value" id="focus-time">0小时</div>
+                        </div>
+                    </div>
+                    <div class="productivity-trends">
+                        <h3>生产力趋势</h3>
+                        <canvas id="productivity-trend-chart"></canvas>
+                    </div>
                 </div>
             </section>
         </main>
@@ -195,6 +268,7 @@ class HTMLGenerator:
     </div>
     
     <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </body>
 </html>
 """

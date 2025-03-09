@@ -51,19 +51,21 @@ class TemplateGenerator:
     
     def create_all_templates(self):
         """创建所有模板和静态资源"""
-        self.ensure_directories()
-        
         try:
+            self.ensure_directories()
+            
             # 创建HTML模板
-            self.html_generator.create_all_templates()
+            html_result = self.html_generator.create_all_templates()
+            print(html_result)
             
             # 创建CSS样式
-            self.css_generator.create_all_css()
+            css_result = self.css_generator.create_all_css()
+            print(css_result)
             
             # 创建JavaScript功能
-            self.js_generator.create_all_js()
+            js_result = self.js_generator.create_all_js()
+            print(js_result)
             
-            print("所有模板和静态资源已创建完成")
             return "所有模板和静态资源已创建完成"
         except Exception as e:
             print(f"创建模板和静态资源时出错: {str(e)}")

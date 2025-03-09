@@ -10,6 +10,8 @@ sys.path.insert(0, os.path.abspath(os.path.dirname(os.path.dirname(os.path.dirna
 
 from src.frontend.js_generator_base import JSGeneratorBase
 from src.frontend.js_generator_advanced import JSGeneratorAdvanced
+from src.frontend.js_generator_timeline import JSGeneratorTimeline
+from src.frontend.js_generator_review import JSGeneratorReview
 
 class JSGenerator:
     """JavaScript生成器，负责组合基本和高级JavaScript功能"""
@@ -25,6 +27,8 @@ class JSGenerator:
         self.js_dir = os.path.join(static_dir, "js")
         self.base_generator = JSGeneratorBase(static_dir)
         self.advanced_generator = JSGeneratorAdvanced(static_dir)
+        self.timeline_generator = JSGeneratorTimeline(static_dir)
+        self.review_generator = JSGeneratorReview(static_dir)
     
     def ensure_directories(self):
         """确保必要的目录存在"""
@@ -35,9 +39,11 @@ class JSGenerator:
     def create_combined_js(self):
         """创建组合的JavaScript文件"""
         try:
-            # 生成基本和高级JavaScript文件
+            # 生成各个JavaScript文件
             self.base_generator.create_base_js()
             self.advanced_generator.create_advanced_js()
+            self.timeline_generator.create_timeline_js()
+            self.review_generator.create_review_js()
             
             # 读取基本JavaScript文件
             with open(os.path.join(self.js_dir, 'script_base.js'), 'r', encoding='utf-8') as f:
@@ -47,8 +53,16 @@ class JSGenerator:
             with open(os.path.join(self.js_dir, 'script_advanced.js'), 'r', encoding='utf-8') as f:
                 advanced_js = f.read()
             
+            # 读取时间轴视图JavaScript文件
+            with open(os.path.join(self.js_dir, 'script_timeline.js'), 'r', encoding='utf-8') as f:
+                timeline_js = f.read()
+            
+            # 读取时间复盘JavaScript文件
+            with open(os.path.join(self.js_dir, 'script_review.js'), 'r', encoding='utf-8') as f:
+                review_js = f.read()
+            
             # 组合JavaScript文件
-            combined_js = base_js + "\n\n" + advanced_js
+            combined_js = base_js + "\n\n" + advanced_js + "\n\n" + timeline_js + "\n\n" + review_js
             
             # 写入组合的JavaScript文件
             with open(os.path.join(self.js_dir, 'script.js'), 'w', encoding='utf-8') as f:
@@ -58,6 +72,8 @@ class JSGenerator:
             try:
                 os.remove(os.path.join(self.js_dir, 'script_base.js'))
                 os.remove(os.path.join(self.js_dir, 'script_advanced.js'))
+                os.remove(os.path.join(self.js_dir, 'script_timeline.js'))
+                os.remove(os.path.join(self.js_dir, 'script_review.js'))
             except:
                 pass  # 忽略删除临时文件时的错误
                 

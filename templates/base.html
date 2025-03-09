@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TaskMate - 任务管理系统</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>TaskMate</h1>
+            <nav>
+                <a href="#" data-view="calendar" class="active">日历视图</a>
+                <a href="#" data-view="week">周视图</a>
+                <a href="#" data-view="day">日视图</a>
+                <a href="#" data-view="time-review">时间复盘</a>
+            </nav>
+        </header>
+        
+        <main>
+            <!-- 日历视图 -->
+            <section id="calendar-view" class="view active">
+                <div class="calendar-header">
+                    <button id="prev-month">&lt;</button>
+                    <h2 id="current-month"></h2>
+                    <button id="next-month">&gt;</button>
+                </div>
+                <div class="calendar-grid"></div>
+                <div class="event-list">
+                    <h3>当日事项</h3>
+                    <div id="event-list-content"></div>
+                </div>
+            </section>
+            
+            <!-- 周视图 -->
+            <section id="week-view" class="view">
+                <div class="timeline-header">
+                    <button id="prev-week-timeline">&lt;</button>
+                    <h2 id="current-week-timeline"></h2>
+                    <button id="next-week-timeline">&gt;</button>
+                </div>
+                <div id="week-timeline" class="timeline"></div>
+            </section>
+            
+            <!-- 日视图 -->
+            <section id="day-view" class="view">
+                <div class="timeline-header">
+                    <button id="prev-day">&lt;</button>
+                    <h2 id="current-day"></h2>
+                    <button id="next-day">&gt;</button>
+                </div>
+                <div id="day-timeline" class="timeline"></div>
+            </section>
+            
+            <!-- 时间复盘 -->
+            <section id="time-review" class="view">
+                <div class="review-header">
+                    <div class="date-filter">
+                        <label for="review-date-from">从：</label>
+                        <input type="date" id="review-date-from">
+                        <label for="review-date-to">至：</label>
+                        <input type="date" id="review-date-to">
+                        <button id="apply-date-filter">应用</button>
+                    </div>
+                    <div class="review-tabs">
+                        <button id="tab-completed-events" class="active">已完成事项</button>
+                        <button id="tab-time-analysis">时间分析</button>
+                        <button id="tab-productivity">生产力报告</button>
+                    </div>
+                </div>
+                
+                <!-- 已完成事项列表 -->
+                <div id="time-review-grid" class="review-content active"></div>
+                
+                <!-- 时间分析 -->
+                <div id="time-analysis" class="review-content">
+                    <div class="chart-container">
+                        <canvas id="daily-time-chart"></canvas>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="task-type-chart"></canvas>
+                    </div>
+                </div>
+                
+                <!-- 生产力报告 -->
+                <div id="productivity-report" class="review-content">
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <h4>完成率</h4>
+                            <p id="completion-rate">0%</p>
+                        </div>
+                        <div class="stat-card">
+                            <h4>准时率</h4>
+                            <p id="on-time-rate">0%</p>
+                        </div>
+                        <div class="stat-card">
+                            <h4>专注时间</h4>
+                            <p id="focus-time">0小时</p>
+                        </div>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="productivity-trend-chart"></canvas>
+                    </div>
+                </div>
+            </section>
+        </main>
+        
+        <!-- 事件详情模态框 -->
+        <div id="event-modal" class="modal">
+            <div class="modal-content">
+                <h2 id="event-modal-title"></h2>
+                <div id="event-modal-content"></div>
+                <div id="event-modal-actions"></div>
+            </div>
+        </div>
+        
+        <!-- 添加事件模态框 -->
+        <div id="add-event-modal" class="modal">
+            <div class="modal-content">
+                <h2>添加事项</h2>
+                <form id="add-event-form">
+                    <div class="form-group">
+                        <label for="event-title">标题：</label>
+                        <input type="text" id="event-title" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="event-type">类型：</label>
+                        <select id="event-type" required>
+                            <option value="任务事项">任务事项</option>
+                            <option value="固定日程">固定日程</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="event-date">日期：</label>
+                        <input type="date" id="event-date" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="event-time">时间：</label>
+                        <input type="text" id="event-time" placeholder="HH:MM-HH:MM" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="event-description">描述：</label>
+                        <textarea id="event-description"></textarea>
+                    </div>
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-primary">保存</button>
+                        <button type="button" class="btn btn-secondary" onclick="closeAddEventModal()">取消</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 引入Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- 引入自定义JavaScript -->
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+</body>
+</html>
