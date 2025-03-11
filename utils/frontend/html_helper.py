@@ -1,4 +1,6 @@
-
+def create_templates():
+    """Create HTML templates"""
+    index_html = '''
 <!DOCTYPE html>
 <html lang="zh">
 <head>
@@ -224,4 +226,7 @@
     <script src="{{ url_for('static', filename='js/script.js') }}"></script>
 </body>
 </html>
+    '''
     
+    with open('templates/index.html', 'w', encoding='utf-8') as f:
+        f.write(index_html)

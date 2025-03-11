@@ -1,0 +1,1125 @@
+def create_css():
+    css = '''
+/* 全局样式 */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    line-height: 1.6;
+    color: #333;
+    background-color: #f5f5f5;
+}
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+/* 通知样式 */
+.notification {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    padding: 12px 20px;
+    background-color: #4CAF50;
+    color: white;
+    border-radius: 4px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+    z-index: 1100;
+    opacity: 0;
+    transform: translateY(20px);
+    transition: opacity 0.3s, transform 0.3s;
+}
+
+.notification.show {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.notification.error {
+    background-color: #f44336;
+}
+
+.notification.warning {
+    background-color: #ff9800;
+}
+
+.notification.info {
+    background-color: #2196F3;
+}
+
+/* 头部样式 */
+header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #ddd;
+}
+
+h1 {
+    font-size: 24px;
+    color: #2c3e50;
+}
+
+.date-controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.navigation-controls {
+    display: none;
+    align-items: center;
+    gap: 10px;
+}
+
+.navigation-controls.active {
+    display: flex;
+}
+
+button {
+    padding: 8px 12px;
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+button:hover {
+    background-color: #45a049;
+}
+
+.view-controls {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.view-controls button {
+    background-color: #ddd;
+    color: #333;
+}
+
+.view-controls button.active {
+    background-color: #4CAF50;
+    color: white;
+}
+
+/* 视图容器 */
+#calendar-container {
+    position: relative;
+    height: 700px; /* 固定高度 */
+    width: 100%;
+    overflow-y: auto; /* 添加垂直滚动条 */
+    overflow-x: hidden; /* 隐藏水平滚动条 */
+    scroll-behavior: smooth; /* 平滑滚动 */
+}
+
+/* 视图样式 */
+.view {
+    display: none;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: auto; /* 改为auto，根据内容自动调整高度 */
+}
+
+.view.active {
+    display: block;
+}
+
+/* 月视图样式 */
+#month-grid {
+    display: none;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 5px;
+}
+
+#month-grid.active {
+    display: grid;
+}
+
+.day-cell {
+    min-height: 100px;
+    background-color: white;
+    border-radius: 4px;
+    padding: 5px;
+    border: 1px solid #ddd;
+}
+
+.day-header {
+    text-align: center;
+    font-weight: bold;
+    padding: 5px;
+    background-color: #f0f0f0;
+    border-radius: 4px 4px 0 0;
+}
+
+.day-number {
+    font-size: 14px;
+    font-weight: bold;
+    margin-bottom: 5px;
+}
+
+.event-item {
+    margin: 2px 0;
+    padding: 2px 25px 2px 5px; /* 增加右侧内边距，为删除按钮留出空间 */
+    border-radius: 3px;
+    font-size: 12px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    cursor: pointer;
+    position: relative;
+}
+
+/* 已完成事件样式 */
+.event-item.completed {
+    text-decoration: line-through;
+    opacity: 0.7;
+    background-color: #f0f0f0 !important;
+    color: #666 !important;
+    border-left: 3px solid #999 !important;
+}
+
+/* 周视图和日视图中的已完成事件样式 */
+.day-column .event-item.completed {
+    text-decoration: line-through;
+    opacity: 0.7;
+    background-color: rgba(240, 240, 240, 0.9) !important;
+    color: #666 !important;
+    border-left: 3px solid #999 !important;
+}
+
+/* 完成按钮样式 */
+.complete-button {
+    position: absolute;
+    right: 3px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    border: 1px solid #ccc;
+    background-color: white;
+    color: #4CAF50;
+    font-size: 10px;
+    line-height: 1;
+    padding: 0;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+}
+
+/* 周视图和日视图中的完成按钮样式 */
+.day-column .complete-button {
+    right: 5px;
+    top: 5px;
+    transform: none;
+    background-color: rgba(255, 255, 255, 0.9);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.complete-button:hover {
+    background-color: #f0f0f0;
+}
+
+/* 已完成视图样式 */
+#completed-grid {
+    padding: 10px;
+}
+
+#completed-grid h2 {
+    margin-bottom: 20px;
+    color: #333;
+}
+
+.date-group {
+    margin-bottom: 20px;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 10px;
+}
+
+.date-group h3 {
+    margin-bottom: 10px;
+    color: #666;
+    font-size: 16px;
+}
+
+.events-list {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+/* 列表视图中的事件项样式 */
+.events-list .event-item {
+    padding: 8px 10px;
+    border-radius: 4px;
+    margin: 0;
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.events-list .event-item .complete-button {
+    position: absolute;
+    right: 10px;
+}
+
+.empty-message, .error-message {
+    padding: 20px;
+    text-align: center;
+    color: #666;
+}
+
+.error-message {
+    color: #d9534f;
+}
+
+/* 操作按钮样式 */
+.action-button {
+    margin-top: 10px;
+    padding: 5px 10px;
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    border-radius: 3px;
+    cursor: pointer;
+}
+
+.action-button:hover {
+    background-color: #45a049;
+}
+
+/* 时间轴样式 */
+.time-column {
+    background-color: #f9f9f9;
+    border-right: 1px solid #ddd;
+    min-height: 990px; /* 与日期列保持一致 */
+    position: sticky; /* 使时间列固定 */
+    left: 0; /* 固定在左侧 */
+    z-index: 50; /* 确保在最上层 */
+}
+
+.time-cell {
+    text-align: right;
+    padding: 5px 10px 5px 5px;
+    font-size: 12px;
+    height: 40px; /* 固定高度，与事件位置计算匹配 */
+    line-height: 30px; /* 垂直居中 */
+    border-bottom: 1px dashed #eee; /* 添加分隔线 */
+    color: #666;
+}
+
+.week-day-column, .day-column {
+    background-color: white;
+    border: 1px solid #ddd;
+    min-height: 990px; /* 24小时 * 40px + 30px头部 = 990px */
+    position: relative;
+    height: 100%; /* 确保列高度填满容器 */
+}
+
+.week-day-header {
+    text-align: center;
+    padding: 5px;
+    background-color: #f0f0f0;
+    font-weight: bold;
+    height: 30px; /* 固定高度，与事件位置计算匹配 */
+    line-height: 20px; /* 垂直居中 */
+    border-bottom: 1px solid #ddd;
+    position: sticky; /* 使头部固定 */
+    top: 0; /* 固定在顶部 */
+    z-index: 40; /* 确保在事件上层 */
+}
+
+/* 小时线样式 */
+.hour-line {
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background-color: #eee;
+    z-index: 1;
+}
+
+/* 当前时间指示线 */
+.current-time-indicator {
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background-color: #f44336;
+    z-index: 20;
+    box-shadow: 0 0 5px rgba(244, 67, 54, 0.5); /* 添加阴影效果 */
+}
+
+/* 周视图和日视图中的事件样式 */
+.week-day-column .event-item,
+.day-column .event-item {
+    position: absolute;
+    left: 5px;
+    right: 5px;
+    padding: 5px;
+    z-index: 10;
+    min-height: 25px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    overflow: hidden;
+    border-left: 3px solid;
+}
+
+.event-item.type-meeting {
+    background-color: #bbdefb;
+    border-left-color: #2196F3;
+}
+
+.event-item.type-task {
+    background-color: #c8e6c9;
+    border-left-color: #4CAF50;
+}
+
+.event-item.type-deadline {
+    background-color: #ffcdd2;
+    border-left-color: #F44336;
+}
+
+.event-item.type-other {
+    background-color: #e1bee7;
+    border-left-color: #9C27B0;
+}
+
+/* 周视图样式 */
+#week-grid {
+    display: none;
+    grid-template-columns: 60px repeat(7, 1fr);
+    gap: 5px;
+    height: auto; /* 根据内容自动调整高度 */
+    min-height: 1000px; /* 确保有足够的高度 */
+    position: relative; /* 确保定位正确 */
+}
+
+#week-grid.active {
+    display: grid;
+}
+
+/* 日视图样式 */
+#day-grid {
+    display: none;
+    grid-template-columns: 60px 1fr;
+    gap: 5px;
+    height: auto; /* 根据内容自动调整高度 */
+    min-height: 1000px; /* 确保有足够的高度 */
+    position: relative; /* 确保定位正确 */
+}
+
+#day-grid.active {
+    display: grid;
+}
+
+/* 列表视图样式 */
+#list-grid {
+    display: none;
+    background-color: white;
+    border-radius: 4px;
+    padding: 10px;
+    border: 1px solid #ddd;
+}
+
+#list-grid.active {
+    display: block;
+}
+
+.list-date-header {
+    font-weight: bold;
+    margin: 10px 0;
+    padding-bottom: 5px;
+    border-bottom: 1px solid #ddd;
+}
+
+.list-event-item {
+    padding: 10px;
+    margin-bottom: 10px;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+/* LLM查询视图样式 */
+#llm-grid {
+    display: none;
+    background-color: white;
+    border-radius: 4px;
+    padding: 20px;
+    border: 1px solid #ddd;
+}
+
+#llm-grid.active {
+    display: block;
+}
+
+.llm-container {
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.llm-form {
+    margin-top: 20px;
+}
+
+.form-group {
+    margin-bottom: 20px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: bold;
+}
+
+.form-group textarea {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 14px;
+    resize: vertical;
+}
+
+.radio-group, .checkbox-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
+    margin-top: 5px;
+    padding: 10px;
+    background-color: #f5f5f5;
+    border-radius: 4px;
+}
+
+.radio-group input[type="radio"] {
+    margin-right: 5px;
+}
+
+.radio-group label {
+    font-weight: normal;
+    margin-bottom: 0;
+    cursor: pointer;
+    padding: 5px 10px;
+    border-radius: 3px;
+    transition: background-color 0.2s;
+}
+
+.radio-group label:hover {
+    background-color: #e0e0e0;
+}
+
+.radio-group input[type="radio"]:checked + label {
+    background-color: #4CAF50;
+    color: white;
+}
+
+select {
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    background-color: white;
+    min-width: 150px;
+}
+
+#end-date-container {
+    margin-top: 10px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+#end-date-container label {
+    margin-bottom: 0;
+}
+
+#end-date-container input[type="date"] {
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
+
+.form-actions {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    margin-top: 30px;
+}
+
+.primary-button {
+    padding: 10px 20px;
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 16px;
+    font-weight: bold;
+}
+
+.secondary-button {
+    padding: 10px 20px;
+    background-color: #f0f0f0;
+    color: #333;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 16px;
+}
+
+.primary-button:hover {
+    background-color: #45a049;
+}
+
+.secondary-button:hover {
+    background-color: #e0e0e0;
+}
+
+#loading-indicator {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.spinner {
+    width: 20px;
+    height: 20px;
+    border: 3px solid rgba(0, 0, 0, 0.1);
+    border-radius: 50%;
+    border-top-color: #4CAF50;
+    animation: spin 1s ease-in-out infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+#llm-results {
+    margin-top: 30px;
+    padding-top: 20px;
+    border-top: 1px solid #ddd;
+}
+
+.result-section {
+    margin-bottom: 20px;
+}
+
+.result-section h4 {
+    margin-bottom: 10px;
+    padding-bottom: 5px;
+    border-bottom: 1px solid #eee;
+}
+
+.result-section pre {
+    background-color: #f9f9f9;
+    padding: 15px;
+    border-radius: 4px;
+    overflow-x: auto;
+    white-space: pre-wrap;
+    font-family: monospace;
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+#error-section pre {
+    background-color: #fff0f0;
+    border-left: 3px solid #f44336;
+}
+
+/* 事件详情样式 */
+#event-details, #complete-task-dialog {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 400px;
+    background-color: white;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    z-index: 1000;
+    padding: 20px;
+}
+
+.event-details-header, .dialog-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #ddd;
+}
+
+#event-details-content, .dialog-content {
+    line-height: 1.8;
+}
+
+.dialog-content .form-group {
+    margin-bottom: 15px;
+}
+
+.dialog-content label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: bold;
+    color: #333;
+}
+
+.dialog-content input[type="text"],
+.dialog-content textarea {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+.dialog-content textarea {
+    resize: vertical;
+    min-height: 60px;
+}
+
+.dialog-buttons {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 20px;
+}
+
+.dialog-buttons button {
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+.dialog-buttons .primary-button {
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+}
+
+.dialog-buttons .secondary-button {
+    background-color: #f0f0f0;
+    color: #333;
+    border: 1px solid #ddd;
+}
+
+.dialog-buttons .primary-button:hover {
+    background-color: #45a049;
+}
+
+.dialog-buttons .secondary-button:hover {
+    background-color: #e0e0e0;
+}
+
+.hidden {
+    display: none !important;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+    #month-grid {
+        grid-template-columns: repeat(7, 1fr);
+    }
+    
+    .day-cell {
+        min-height: 60px;
+    }
+    
+    #week-grid {
+        grid-template-columns: 40px repeat(7, 1fr);
+    }
+    
+    #event-details, #complete-task-dialog {
+        width: 90%;
+    }
+}
+
+/* 加载指示器样式 */
+.loading-indicator {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(255, 255, 255, 0.7);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+.spinner {
+    width: 40px;
+    height: 40px;
+    border: 4px solid #f3f3f3;
+    border-top: 4px solid #3498db;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* 周期性事件样式 */
+.recur-icon {
+    display: inline-block;
+    margin-left: 5px;
+    font-size: 12px;
+    opacity: 0.7;
+}
+
+.event-item[data-recurring="true"] {
+    position: relative;
+    border-left: 3px solid #4a6da7;
+}
+
+.event-item[data-recurring="true"]::after {
+    content: '🔄';
+    position: absolute;
+    right: 30px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 10px;
+    opacity: 0.6;
+}
+
+/* 正在完成中的事件样式 */
+.event-item.completing {
+    opacity: 0.5;
+    pointer-events: none;
+    transition: all 0.5s ease;
+}
+
+/* 删除按钮样式 */
+.delete-button {
+    position: absolute;
+    right: 3px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    border: 1px solid #ccc;
+    background-color: white;
+    color: #f44336;
+    font-size: 10px;
+    line-height: 1;
+    padding: 0;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+}
+
+/* 周视图和日视图中的删除按钮样式 */
+.day-column .delete-button {
+    right: 5px;
+    top: 5px;
+    transform: none;
+    background-color: rgba(255, 255, 255, 0.9);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.delete-button:hover {
+    background-color: #f44336;
+    color: white;
+}
+
+/* 时间选择器样式 */
+.time-picker-container {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 5px;
+}
+
+.time-picker-group {
+    flex: 1;
+}
+
+.time-picker-group label {
+    display: block;
+    margin-bottom: 5px;
+    font-size: 14px;
+    color: #555;
+}
+
+.time-picker-separator {
+    margin: 0 5px;
+    padding-top: 20px;
+    color: #666;
+}
+
+input[type="time"] {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 14px;
+    color: #333;
+}
+
+input[type="time"]:focus {
+    border-color: #4CAF50;
+    outline: none;
+    box-shadow: 0 0 3px rgba(76, 175, 80, 0.3);
+}
+
+.dialog-content .form-group {
+    margin-bottom: 15px;
+}
+
+.dialog-content label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: bold;
+    color: #333;
+}
+
+.dialog-content input[type="text"],
+.dialog-content textarea {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+.dialog-content textarea {
+    resize: vertical;
+    min-height: 60px;
+}
+
+.dialog-buttons {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 20px;
+}
+
+/* 时间复盘视图样式 */
+#time-review-grid {
+    padding: 20px;
+    background-color: white;
+    border-radius: 4px;
+    border: 1px solid #ddd;
+}
+
+.time-review-header {
+    margin-bottom: 20px;
+    color: #333;
+    font-size: 20px;
+    font-weight: bold;
+    text-align: center;
+}
+
+.time-review-day {
+    margin-bottom: 30px;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 20px;
+}
+
+.time-review-day-header {
+    margin-bottom: 15px;
+    padding: 10px;
+    background-color: #f5f5f5;
+    border-radius: 4px;
+    font-weight: bold;
+    color: #333;
+    font-size: 16px;
+}
+
+.time-review-events {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.time-review-event {
+    display: flex;
+    flex-direction: column;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.time-review-event-title {
+    padding: 10px;
+    background-color: #f9f9f9;
+    font-weight: bold;
+    border-bottom: 1px solid #ddd;
+}
+
+.time-review-event-content {
+    display: flex;
+    flex-direction: column;
+}
+
+.time-review-timeline-container {
+    position: relative;
+    padding: 40px 10px 50px;
+    margin-bottom: 10px;
+    background-color: #f9f9f9;
+    border-bottom: 1px solid #ddd;
+}
+
+.time-review-timeline {
+    position: relative;
+    height: 60px;
+    background-color: #f0f0f0;
+    border-radius: 4px;
+}
+
+.time-review-hour-marker {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background-color: #ccc;
+}
+
+.time-review-hour-label {
+    position: absolute;
+    bottom: -25px;
+    transform: translateX(-50%);
+    font-size: 12px;
+    color: #666;
+}
+
+.time-review-time-bar {
+    position: absolute;
+    height: 20px;
+    border-radius: 3px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.planned-time-bar {
+    top: 10px;
+    background-color: #e8f5e9;
+    border: 1px solid #81c784;
+    z-index: 2;
+}
+
+.actual-time-bar {
+    top: 35px;
+    background-color: #e3f2fd;
+    border: 1px solid #64b5f6;
+    z-index: 2;
+}
+
+.time-review-bar-label {
+    position: absolute;
+    top: -20px;
+    left: 0;
+    white-space: nowrap;
+    font-size: 12px;
+    color: #333;
+    background-color: rgba(255, 255, 255, 0.8);
+    padding: 2px 5px;
+    border-radius: 2px;
+}
+
+.time-review-diff-info {
+    position: absolute;
+    bottom: -35px;
+    left: 0;
+    right: 0;
+    text-align: center;
+    font-size: 13px;
+    color: #555;
+    padding: 5px;
+    background-color: rgba(255, 255, 255, 0.8);
+    border-radius: 3px;
+}
+
+.time-review-event-notes {
+    flex: 1;
+    padding: 10px;
+    background-color: #f5f5f5;
+    border-top: 1px solid #ddd;
+}
+
+.time-review-notes-section {
+    margin-bottom: 10px;
+}
+
+.time-review-notes-label {
+    font-size: 12px;
+    color: #666;
+    margin-bottom: 5px;
+    font-weight: bold;
+}
+
+.time-review-notes-value {
+    color: #333;
+    white-space: pre-line;
+    font-size: 14px;
+    line-height: 1.4;
+}
+
+.time-review-no-notes {
+    color: #999;
+    font-style: italic;
+    text-align: center;
+    padding: 20px 0;
+}
+
+.time-review-planned-time, 
+.time-review-actual-time {
+    flex: 1;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+.time-review-planned-time {
+    background-color: #e8f5e9;
+    border-right: 1px solid #ddd;
+}
+
+.time-review-actual-time {
+    background-color: #e3f2fd;
+}
+
+.time-review-time-label {
+    font-size: 12px;
+    color: #666;
+    margin-bottom: 5px;
+}
+
+.time-review-time-value {
+    font-weight: bold;
+    color: #333;
+}
+
+.time-review-empty {
+    text-align: center;
+    padding: 30px;
+    color: #666;
+    font-style: italic;
+}
+    '''
+    
+    with open('static/css/style.css', 'w', encoding='utf-8') as f:
+        f.write(css)
