@@ -7,11 +7,34 @@ def create_css():
     box-sizing: border-box;
 }
 
+:root {
+    --primary-color: #4361ee;
+    --primary-light: #4895ef;
+    --primary-dark: #3f37c9;
+    --secondary-color: #4cc9f0;
+    --text-color: #2b2d42;
+    --text-light: #8d99ae;
+    --background-color: #f8f9fa;
+    --card-color: #ffffff;
+    --border-color: #e9ecef;
+    --success-color: #4ade80;
+    --warning-color: #fbbf24;
+    --error-color: #f87171;
+    --info-color: #60a5fa;
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+    --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1);
+    --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
+    --border-radius-sm: 4px;
+    --border-radius-md: 8px;
+    --border-radius-lg: 12px;
+    --transition-speed: 0.3s;
+}
+
 body {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     line-height: 1.6;
-    color: #333;
-    background-color: #f5f5f5;
+    color: var(--text-color);
+    background-color: var(--background-color);
 }
 
 .container {
@@ -415,8 +438,8 @@ button:hover {
 
 /* 时间轴样式 */
 .time-column {
-    background-color: #f9f9f9;
-    border-right: 1px solid #ddd;
+    background-color: var(--background-color);
+    border-right: 1px solid var(--border-color);
     min-height: 990px; /* 与日期列保持一致 */
     position: sticky; /* 使时间列固定 */
     left: 0; /* 固定在左侧 */
@@ -429,13 +452,13 @@ button:hover {
     font-size: 12px;
     height: 40px; /* 固定高度，与事件位置计算匹配 */
     line-height: 30px; /* 垂直居中 */
-    border-bottom: 1px dashed #eee; /* 添加分隔线 */
-    color: #666;
+    border-bottom: 1px dashed var(--border-color); /* 添加分隔线 */
+    color: var(--text-light);
 }
 
 .week-day-column, .day-column {
-    background-color: white;
-    border: 1px solid #ddd;
+    background-color: var(--card-color);
+    border: 1px solid var(--border-color);
     min-height: 990px; /* 24小时 * 40px + 30px头部 = 990px */
     position: relative;
     height: 100%; /* 确保列高度填满容器 */
@@ -443,15 +466,24 @@ button:hover {
 
 .week-day-header {
     text-align: center;
-    padding: 5px;
-    background-color: #f0f0f0;
-    font-weight: bold;
-    height: 30px; /* 固定高度，与事件位置计算匹配 */
-    line-height: 20px; /* 垂直居中 */
-    border-bottom: 1px solid #ddd;
+    padding: 8px 5px;
+    background-color: var(--background-color);
+    font-weight: 600;
+    height: 40px; /* 固定高度，与事件位置计算匹配 */
+    line-height: 1.3; /* 垂直居中 */
+    border-bottom: 1px solid var(--border-color);
     position: sticky; /* 使头部固定 */
     top: 0; /* 固定在顶部 */
     z-index: 40; /* 确保在事件上层 */
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.week-day-header.today {
+    background-color: rgba(67, 97, 238, 0.1);
+    color: var(--primary-color);
+    font-weight: 700;
 }
 
 /* 小时线样式 */
@@ -460,7 +492,7 @@ button:hover {
     left: 0;
     right: 0;
     height: 1px;
-    background-color: #eee;
+    background-color: var(--border-color);
     z-index: 1;
 }
 
@@ -470,9 +502,20 @@ button:hover {
     left: 0;
     right: 0;
     height: 2px;
-    background-color: #f44336;
+    background-color: var(--error-color);
     z-index: 20;
-    box-shadow: 0 0 5px rgba(244, 67, 54, 0.5); /* 添加阴影效果 */
+    box-shadow: 0 0 5px rgba(244, 67, 54, 0.3); /* 添加阴影效果 */
+}
+
+.current-time-indicator::before {
+    content: '';
+    position: absolute;
+    left: -5px;
+    top: -4px;
+    width: 10px;
+    height: 10px;
+    background-color: var(--error-color);
+    border-radius: 50%;
 }
 
 /* 周视图和日视图中的事件样式 */
@@ -481,39 +524,77 @@ button:hover {
     position: absolute;
     left: 5px;
     right: 5px;
-    padding: 5px;
+    padding: 8px 10px;
     z-index: 10;
-    min-height: 25px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    min-height: 28px;
+    box-shadow: var(--shadow-sm);
     overflow: hidden;
-    border-left: 3px solid;
+    border-radius: var(--border-radius-sm);
+    transition: all var(--transition-speed);
+    font-size: 13px;
+    line-height: 1.3;
+    display: flex;
+    flex-direction: column;
 }
 
+.week-day-column .event-item:hover,
+.day-column .event-item:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+    z-index: 20;
+    min-height: auto;
+    height: auto !important;
+    max-height: none !important;
+    white-space: normal;
+}
+
+.week-day-column .event-item .event-time,
+.day-column .event-item .event-time {
+    font-size: 11px;
+    font-weight: 600;
+    opacity: 0.9;
+    margin-bottom: 2px;
+}
+
+.week-day-column .event-item .event-title,
+.day-column .event-item .event-title {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.week-day-column .event-item:hover .event-title,
+.day-column .event-item:hover .event-title {
+    white-space: normal;
+    overflow: visible;
+}
+
+/* 事件类型样式 */
 .event-item.type-meeting {
-    background-color: #bbdefb;
-    border-left-color: #2196F3;
+    background-color: var(--primary-color);
+    color: white;
 }
 
 .event-item.type-task {
-    background-color: #c8e6c9;
-    border-left-color: #4CAF50;
+    background-color: var(--secondary-color);
+    color: white;
 }
 
 .event-item.type-deadline {
-    background-color: #ffcdd2;
-    border-left-color: #F44336;
+    background-color: var(--warning-color);
+    color: white;
 }
 
 .event-item.type-other {
-    background-color: #e1bee7;
-    border-left-color: #9C27B0;
+    background-color: var(--info-color);
+    color: white;
 }
 
 /* 周视图样式 */
 #week-grid {
     display: none;
     grid-template-columns: 60px repeat(7, 1fr);
-    gap: 5px;
+    gap: 8px;
     height: auto; /* 根据内容自动调整高度 */
     min-height: 1000px; /* 确保有足够的高度 */
     position: relative; /* 确保定位正确 */

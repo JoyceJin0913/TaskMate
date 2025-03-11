@@ -885,12 +885,31 @@ function renderWeekView() {
         dayDates.push(dateStr);
         
         const dayColumn = document.createElement('div');
-        dayColumn.className = 'day-column';
+        dayColumn.className = 'week-day-column';
         
         // 添加日期标题
         const dayHeader = document.createElement('div');
         dayHeader.className = 'week-day-header';
-        dayHeader.textContent = `${dayDate.getMonth() + 1}/${dayDate.getDate()} ${['周日', '周一', '周二', '周三', '周四', '周五', '周六'][dayDate.getDay()]}`;
+        
+        // 检查是否是今天
+        const today = new Date();
+        if (dayDate.getDate() === today.getDate() && 
+            dayDate.getMonth() === today.getMonth() && 
+            dayDate.getFullYear() === today.getFullYear()) {
+            dayHeader.classList.add('today');
+        }
+        
+        // 创建日期名称和日期数字的分隔显示
+        const dayName = document.createElement('div');
+        dayName.className = 'day-name';
+        dayName.textContent = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'][dayDate.getDay()];
+        
+        const dayDateEl = document.createElement('div');
+        dayDateEl.className = 'day-date';
+        dayDateEl.textContent = `${dayDate.getMonth() + 1}/${dayDate.getDate()}`;
+        
+        dayHeader.appendChild(dayName);
+        dayHeader.appendChild(dayDateEl);
         dayColumn.appendChild(dayHeader);
         
         // 添加时间背景网格线
@@ -900,7 +919,7 @@ function renderWeekView() {
             hourLine.style.position = 'absolute';
             hourLine.style.left = '0';
             hourLine.style.right = '0';
-            hourLine.style.top = `${hour * 40 + 30}px`;
+            hourLine.style.top = `${hour * 40 + 40}px`;
             hourLine.style.height = '1px';
             hourLine.style.backgroundColor = '#eee';
             hourLine.style.zIndex = '1';
@@ -930,89 +949,160 @@ function renderWeekView() {
         const currentDayPosition = calculateEventPosition(currentDayTimeRange);
         
         if (currentDayPosition) {
-            // 使用renderEventItem函数创建事件元素
-            const eventStyle = {
-                position: 'absolute',
-                top: `${currentDayPosition.top}px`,
-                left: '5px',
-                right: '5px',
-                height: `${currentDayPosition.height}px`,
-                zIndex: '2'
-            };
+            // 创建事件元素
+            const eventElement = document.createElement('div');
+            eventElement.className = `event-item ${event.type ? 'type-' + event.type : 'type-other'}`;
             
-            // 设置事件显示内容
-            const eventOptions = {
-                style: eventStyle,
-                customContent: `${event.time_range}: ${event.title}`
-            };
+            // 设置事件ID
+            eventElement.dataset.id = event.id;
             
-            renderEventItem(event, dayColumns[dateIndex], eventOptions);
-        }
-        
-        // 如果是跨天事件，且次日也在当前周内，则在次日也显示事件
-        if (isOvernight && dateIndex < 6) {
-            const nextDayTimeRange = getNextDayTimeRange(event.time_range);
-            const nextDayPosition = calculateEventPosition(nextDayTimeRange);
+            // 计算事件内容的预估高度
+            const timeHeight = 15; // 时间标签的高度
+            const titleText = event.title;
+            const titleHeight = Math.ceil(titleText.length / 20) * 18; // 估算标题文本的高度
+            const contentHeight = timeHeight + titleHeight + 16; // 加上内边距
             
-            if (nextDayPosition) {
-                // 使用renderEventItem函数创建次日事件元素
-                const nextDayStyle = {
-                    position: 'absolute',
-                    top: `${nextDayPosition.top}px`,
-                    left: '5px',
-                    right: '5px',
-                    height: `${nextDayPosition.height}px`,
-                    zIndex: '2'
-                };
+            // 使用时间跨度计算的高度和内容高度中的较大值
+            const minHeight = Math.max(currentDayPosition.height, contentHeight);
+            
+            // 设置事件样式
+            eventElement.style.position = 'absolute';
+            eventElement.style.top = `${currentDayPosition.top}px`;
+            eventElement.style.left = '5px';
+            eventElement.style.right = '5px';
+            eventElement.style.height = `${currentDayPosition.height}px`;
+            eventElement.style.minHeight = `${minHeight}px`;
+            eventElement.style.zIndex = '2';
+            
+            // 创建时间和标题的分隔显示
+            const timeElement = document.createElement('div');
+            timeElement.className = 'event-time';
+            timeElement.textContent = event.time_range;
+            
+            const titleElement = document.createElement('div');
+            titleElement.className = 'event-title';
+            titleElement.textContent = event.title;
+            
+            eventElement.appendChild(timeElement);
+            eventElement.appendChild(titleElement);
+            
+            // 添加事件点击处理
+            eventElement.addEventListener('click', () => showEventDetails(event));
+            
+            // 添加鼠标悬停事件处理
+            eventElement.addEventListener('mouseenter', () => {
+                // 保存原始高度
+                const originalHeight = eventElement.offsetHeight;
                 
-                // 设置次日事件显示内容
-                const nextDayOptions = {
-                    style: nextDayStyle,
-                    customContent: `(续) ${event.title}`
-                };
+                // 临时移除高度限制，让内容自然展开
+                const originalHeightStyle = eventElement.style.height;
+                eventElement.style.height = 'auto';
                 
-                renderEventItem(event, dayColumns[dateIndex + 1], nextDayOptions);
+                // 获取自然展开后的高度
+                const expandedHeight = eventElement.offsetHeight;
+                
+                // 恢复原始高度设置
+                eventElement.style.height = originalHeightStyle;
+                
+                // 设置最小高度为原始高度和展开高度中的较大值
+                eventElement.style.minHeight = `${Math.max(originalHeight, expandedHeight)}px`;
+            });
+            
+            // 如果事件已完成，添加completed类
+            if (event.is_completed) {
+                eventElement.classList.add('completed');
+            } else {
+                // 添加完成按钮
+                const completeButton = document.createElement('button');
+                completeButton.className = 'complete-button';
+                completeButton.innerHTML = '✓';
+                completeButton.addEventListener('click', (e) => {
+                    e.stopPropagation(); // 阻止事件冒泡
+                    markEventCompleted(event.id);
+                });
+                eventElement.appendChild(completeButton);
             }
+            
+            // 添加到对应的日期列
+            dayColumns[dateIndex].appendChild(eventElement);
         }
-    });
-    
-    // 第二步：处理前一天的跨天事件（特别是周六到周日的跨天事件）
-    console.log("处理前一天的跨天事件");
-    events.forEach(event => {
-        // 检查是否是跨天事件
-        if (!isOvernightEvent(event.time_range)) return;
         
-        // 计算事件的次日
-        const eventDate = new Date(event.date);
-        eventDate.setDate(eventDate.getDate() + 1);
-        const nextDateStr = formatDate(eventDate);
-        
-        // 检查次日是否在当前周内
-        const nextDateIndex = dayDates.indexOf(nextDateStr);
-        if (nextDateIndex === -1) return; // 如果次日不在当前周内，跳过
-        
-        // 获取次日的时间范围
-        const nextDayTimeRange = getNextDayTimeRange(event.time_range);
-        const position = calculateEventPosition(nextDayTimeRange);
-        
-        if (position) {
-            // 使用renderEventItem函数创建次日事件元素
-            const nextDayStyle = {
-                position: 'absolute',
-                top: `${position.top}px`,
-                left: '5px',
-                right: '5px',
-                height: `${position.height}px`,
-                zIndex: '2'
-            };
-            
-            // 设置次日事件显示内容
-            const nextDayOptions = {
-                style: nextDayStyle,
-                customContent: `(续) ${event.title}`
-            };
-            
-            renderEventItem(event, dayColumns[nextDateIndex], nextDayOptions);
+        // 如果是跨天事件，在第二天显示
+        if (isOvernight) {
+            const nextDayIndex = (dateIndex + 1) % 7;
+            if (nextDayIndex >= 0 && nextDayIndex < 7) {
+                const nextDayTimeRange = getNextDayTimeRange(event.time_range);
+                const nextDayPosition = calculateEventPosition(nextDayTimeRange);
+                
+                if (nextDayPosition) {
+                    // 创建事件元素
+                    const eventElement = document.createElement('div');
+                    eventElement.className = `event-item ${event.type ? 'type-' + event.type : 'type-other'}`;
+                    
+                    // 设置事件ID
+                    eventElement.dataset.id = event.id;
+                    
+                    // 计算事件内容的预估高度
+                    const timeHeight = 15; // 时间标签的高度
+                    const titleText = event.title + ' (续)';
+                    const titleHeight = Math.ceil(titleText.length / 20) * 18; // 估算标题文本的高度
+                    const contentHeight = timeHeight + titleHeight + 16; // 加上内边距
+                    
+                    // 使用时间跨度计算的高度和内容高度中的较大值
+                    const minHeight = Math.max(nextDayPosition.height, contentHeight);
+                    
+                    // 设置事件样式
+                    eventElement.style.position = 'absolute';
+                    eventElement.style.top = `${nextDayPosition.top}px`;
+                    eventElement.style.left = '5px';
+                    eventElement.style.right = '5px';
+                    eventElement.style.height = `${nextDayPosition.height}px`;
+                    eventElement.style.minHeight = `${minHeight}px`;
+                    eventElement.style.zIndex = '2';
+                    
+                    // 创建时间和标题的分隔显示
+                    const timeElement = document.createElement('div');
+                    timeElement.className = 'event-time';
+                    timeElement.textContent = nextDayTimeRange;
+                    
+                    const titleElement = document.createElement('div');
+                    titleElement.className = 'event-title';
+                    titleElement.textContent = event.title + ' (续)';
+                    
+                    eventElement.appendChild(timeElement);
+                    eventElement.appendChild(titleElement);
+                    
+                    // 添加事件点击处理
+                    eventElement.addEventListener('click', () => showEventDetails(event));
+                    
+                    // 添加鼠标悬停事件处理
+                    eventElement.addEventListener('mouseenter', () => {
+                        // 保存原始高度
+                        const originalHeight = eventElement.offsetHeight;
+                        
+                        // 临时移除高度限制，让内容自然展开
+                        const originalHeightStyle = eventElement.style.height;
+                        eventElement.style.height = 'auto';
+                        
+                        // 获取自然展开后的高度
+                        const expandedHeight = eventElement.offsetHeight;
+                        
+                        // 恢复原始高度设置
+                        eventElement.style.height = originalHeightStyle;
+                        
+                        // 设置最小高度为原始高度和展开高度中的较大值
+                        eventElement.style.minHeight = `${Math.max(originalHeight, expandedHeight)}px`;
+                    });
+                    
+                    // 如果事件已完成，添加completed类
+                    if (event.is_completed) {
+                        eventElement.classList.add('completed');
+                    }
+                    
+                    // 添加到对应的日期列
+                    dayColumns[nextDayIndex].appendChild(eventElement);
+                }
+            }
         }
     });
     

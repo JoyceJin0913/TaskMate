@@ -7,6 +7,9 @@ def create_templates():
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>TaskMate</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
@@ -200,7 +203,7 @@ def create_templates():
         <div id="event-details" class="hidden">
             <div class="event-details-header">
                 <h2>事件详情</h2>
-                <button id="close-details">关闭</button>
+                <button id="close-details">×</button>
             </div>
             <div id="event-details-content"></div>
         </div>
@@ -209,7 +212,7 @@ def create_templates():
         <div id="complete-task-dialog" class="hidden">
             <div class="dialog-header">
                 <h2>完成任务</h2>
-                <button id="close-complete-dialog">关闭</button>
+                <button id="close-complete-dialog">×</button>
             </div>
             <div class="dialog-content">
                 <div class="form-group">
