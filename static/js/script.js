@@ -37,6 +37,8 @@ document.addEventListener('DOMContentLoaded', function() {
         switchView('day');
     });
     
+    // 列表视图和已完成按钮暂时隐藏，但保留事件绑定代码以便将来恢复
+    /*
     document.getElementById('list-view').addEventListener('click', function() {
         switchView('list');
     });
@@ -44,13 +46,19 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('completed-view').addEventListener('click', function() {
         switchView('completed');
     });
+    */
     
-    document.getElementById('time-review-view').addEventListener('click', function() {
-        switchView('time-review');
+    // 绑定主要分类按钮
+    document.getElementById('planning-view').addEventListener('click', function() {
+        switchView('planning');
     });
     
-    document.getElementById('llm-view').addEventListener('click', function() {
-        switchView('llm');
+    document.getElementById('reviewing-view').addEventListener('click', function() {
+        switchView('reviewing');
+    });
+    
+    document.getElementById('schedule-section-btn').addEventListener('click', function() {
+        toggleScheduleMenu();
     });
     
     // 绑定日期导航按钮
@@ -106,6 +114,10 @@ function initializeView() {
     // 设置默认视图为月视图
     currentView = 'month';
     
+    // 激活Schedule分类按钮和菜单
+    document.getElementById('schedule-section-btn').classList.add('active');
+    document.getElementById('schedule-menu').classList.add('active');
+    
     // 激活月视图按钮
     document.getElementById('month-view').classList.add('active');
     
@@ -122,24 +134,85 @@ function initializeView() {
     loadEvents();
 }
 
-// 切换视图
+/**
+ * 切换Schedule菜单的显示状态
+ */
+function toggleScheduleMenu() {
+    const scheduleButton = document.getElementById('schedule-section-btn');
+    const scheduleMenu = document.getElementById('schedule-menu');
+    
+    // 切换菜单显示状态
+    scheduleButton.classList.toggle('active');
+    scheduleMenu.classList.toggle('active');
+    
+    // 如果菜单被激活，确保当前视图是Schedule中的一个
+    if (scheduleButton.classList.contains('active')) {
+        // 如果当前没有激活的视图按钮，则默认激活月视图
+        const activeButton = document.querySelector('.sidebar-button.active');
+        if (!activeButton) {
+            switchView('month');
+        }
+    }
+}
+
+/**
+ * 切换视图
+ * @param {string} viewType - 视图类型：planning, month, week, day, list, completed, reviewing
+ */
 function switchView(viewType) {
     console.log("切换视图到:", viewType);
+    
+    // 列表视图和已完成视图暂时禁用，如果尝试切换到这些视图，则默认切换到月视图
+    if (viewType === 'list' || viewType === 'completed') {
+        console.log("列表视图和已完成视图暂时禁用，切换到月视图");
+        viewType = 'month';
+    }
+    
+    // 更新所有分类按钮状态
+    document.querySelectorAll('.section-button').forEach(button => {
+        button.classList.remove('active');
+    });
+    
+    // 隐藏Schedule菜单
+    document.getElementById('schedule-menu').classList.remove('active');
+    
+    // 更新视图按钮状态
+    document.querySelectorAll('.sidebar-button').forEach(button => {
+        button.classList.remove('active');
+    });
+    
+    // 处理特殊视图类型
+    if (viewType === 'planning') {
+        // 激活Planning按钮
+        document.getElementById('planning-view').classList.add('active');
+        // 实际显示LLM查询视图
+        viewType = 'llm';
+    } else if (viewType === 'reviewing') {
+        // 激活Reviewing按钮
+        document.getElementById('reviewing-view').classList.add('active');
+        // 实际显示时间复盘视图
+        viewType = 'time-review';
+    } else {
+        // 激活Schedule按钮和菜单
+        document.getElementById('schedule-section-btn').classList.add('active');
+        document.getElementById('schedule-menu').classList.add('active');
+        // 激活当前视图按钮
+        const activeButton = document.getElementById(`${viewType}-view`);
+        if (activeButton) {
+            activeButton.classList.add('active');
+        }
+    }
     
     // 更新当前视图
     currentView = viewType;
     
-    // 更新视图按钮状态
-    document.querySelectorAll('.view-controls button').forEach(button => {
-        button.classList.toggle('active', button.id === `${viewType}-view`);
-    });
-    
     // 更新导航控件显示
-    document.querySelectorAll('.navigation-controls').forEach(nav => {
-        nav.classList.remove('active');
+    const navigationControls = document.querySelectorAll('.navigation-controls');
+    navigationControls.forEach(control => {
+        control.classList.remove('active');
     });
     
-    // 显示对应的导航控件
+    // 根据视图类型显示相应的导航控件
     if (viewType === 'month') {
         document.getElementById('month-navigation').classList.add('active');
     } else if (viewType === 'week') {
@@ -149,12 +222,16 @@ function switchView(viewType) {
     }
     
     // 隐藏所有视图
-    document.querySelectorAll('.view').forEach(view => {
+    const views = document.querySelectorAll('.view');
+    views.forEach(view => {
         view.classList.remove('active');
     });
     
-    // 显示选中的视图
-    document.getElementById(`${viewType}-grid`).classList.add('active');
+    // 显示当前视图
+    const currentViewElement = document.getElementById(`${viewType}-grid`);
+    if (currentViewElement) {
+        currentViewElement.classList.add('active');
+    }
     
     // 更新日期显示
     updateDateDisplay();

@@ -37,142 +37,161 @@ def create_templates():
             </div>
         </header>
         
-        <div class="view-controls">
-            <button id="month-view" class="active">月视图</button>
-            <button id="week-view">周视图</button>
-            <button id="day-view">日视图</button>
-            <button id="list-view">列表视图</button>
-            <button id="completed-view">已完成</button>
-            <button id="time-review-view">时间复盘</button>
-            <button id="llm-view">LLM查询</button>
-        </div>
-        
-        <!-- View containers -->
-        <div id="calendar-container">
-            <!-- Month view -->
-            <div id="month-grid" class="view active"></div>
-            
-            <!-- Week view -->
-            <div id="week-grid" class="view"></div>
-            
-            <!-- Day view -->
-            <div id="day-grid" class="view"></div>
-            
-            <!-- List view -->
-            <div id="list-grid" class="view"></div>
-            
-            <!-- Completed view -->
-            <div id="completed-grid" class="view"></div>
-            
-            <!-- Time review view -->
-            <div id="time-review-grid" class="view"></div>
-            
-            <!-- LLM query view -->
-            <div id="llm-grid" class="view">
-                <div class="llm-container">
-                    <h2>LLM日程规划助手</h2>
-                    <div class="llm-form">
-                        <div class="form-group">
-                            <label>选择操作模式：</label>
-                            <div class="radio-group">
-                                <input type="radio" id="mode-future-planning" name="query_type" value="future_planning" checked>
-                                <label for="mode-future-planning">未来规划</label>
-                                
-                                <input type="radio" id="mode-historical-review" name="query_type" value="historical_review">
-                                <label for="mode-historical-review">历史复盘</label>
-                            </div>
-                        </div>
-
-                        <div class="form-group">
-                            <label for="llm-prompt">请输入您的需求：</label>
-                            <textarea id="llm-prompt" rows="4" placeholder="未来规划示例：明天下午三点要开会，需要提前准备一个小时&#10;历史复盘示例：记录完成了周二的项目评审会议"></textarea>
-                        </div>
-                        
-                        <div class="form-group">
-                            <label>选择模型：</label>
-                            <div class="radio-group">
-                                <input type="radio" id="model-deepseek-chat" name="model" value="deepseek-chat" checked>
-                                <label for="model-deepseek-chat">DeepSeek V3</label>
-
-                                <input type="radio" id="model-deepseek-reasoner" name="model" value="deepseek-reasoner">
-                                <label for="model-deepseek-reasoner">DeepSeek R1 (Slow)</label>
-                                
-                                <input type="radio" id="model-gpt4" name="model" value="gpt-4o">
-                                <label for="model-gpt4">GPT-4o</label>
-                            </div>
-                        </div>
-                        
-                        <div class="form-group">
-                            <label>重复设置：</label>
-                            <select id="recurrence">
-                                <option value="">不重复</option>
-                                <option value="daily">每天</option>
-                                <option value="weekly">每周</option>
-                                <option value="weekdays">工作日</option>
-                                <option value="monthly">每月</option>
-                                <option value="yearly">每年</option>
-                            </select>
-                            
-                            <div id="end-date-container" class="hidden">
-                                <label for="end-date">结束日期：</label>
-                                <input type="date" id="end-date">
-                            </div>
-                        </div>
-                        
-                        <div class="form-group">
-                            <label>显示选项：</label>
-                            <div class="checkbox-group">
-                                <input type="checkbox" id="show-summary" checked>
-                                <label for="show-summary">显示处理摘要</label>
-                                
-                                <input type="checkbox" id="show-changes" checked>
-                                <label for="show-changes">显示变更详情</label>
-                                
-                                <input type="checkbox" id="show-events">
-                                <label for="show-events">显示所有事件</label>
-                                
-                                <input type="checkbox" id="show-unchanged">
-                                <label for="show-unchanged">显示未变化事件</label>
-                            </div>
-                        </div>
-                        
-                        <div class="form-actions">
-                            <button id="submit-llm" class="primary-button">提交查询</button>
-                            <div id="loading-indicator" class="hidden">
-                                <div class="spinner"></div>
-                                <span>正在处理...</span>
-                            </div>
-                        </div>
+        <div class="main-content">
+            <!-- 左侧菜单 -->
+            <div class="sidebar">
+                <div class="sidebar-section">
+                    <button id="planning-view" class="section-button">Planning</button>
+                </div>
+                
+                <div class="sidebar-section">
+                    <button id="schedule-section-btn" class="section-button active">Schedule</button>
+                    <div id="schedule-menu" class="sidebar-menu active">
+                        <button id="month-view" class="sidebar-button active">月视图</button>
+                        <button id="week-view" class="sidebar-button">周视图</button>
+                        <button id="day-view" class="sidebar-button">日视图</button>
+                        <!-- 暂时隐藏列表视图和已完成按钮 
+                        <button id="list-view" class="sidebar-button">列表视图</button>
+                        <button id="completed-view" class="sidebar-button">已完成</button>
+                        -->
                     </div>
+                </div>
+                
+                <div class="sidebar-section">
+                    <button id="reviewing-view" class="section-button">Reviewing</button>
+                </div>
+            </div>
+            
+            <!-- 主内容区域 -->
+            <div class="content-area">
+                <!-- View containers -->
+                <div id="calendar-container">
+                    <!-- Month view -->
+                    <div id="month-grid" class="view active"></div>
                     
-                    <div id="llm-results" class="hidden">
-                        <h3>处理结果</h3>
-                        <div class="result-section">
-                            <h4>模型回复</h4>
-                            <pre id="llm-response"></pre>
+                    <!-- Week view -->
+                    <div id="week-grid" class="view"></div>
+                    
+                    <!-- Day view -->
+                    <div id="day-grid" class="view"></div>
+                    
+                    <!-- List view -->
+                    <div id="list-grid" class="view"></div>
+                    
+                    <!-- Completed view -->
+                    <div id="completed-grid" class="view"></div>
+                    
+                    <!-- Time review view -->
+                    <div id="time-review-grid" class="view"></div>
+                    
+                    <!-- LLM query view -->
+                    <div id="llm-grid" class="view">
+                        <div class="llm-container">
+                            <h2>LLM日程规划助手</h2>
+                            <div class="llm-form">
+                                <div class="form-group">
+                                    <label>选择操作模式：</label>
+                                    <div class="radio-group">
+                                        <input type="radio" id="mode-future-planning" name="query_type" value="future_planning" checked>
+                                        <label for="mode-future-planning">未来规划</label>
+                                        
+                                        <input type="radio" id="mode-historical-review" name="query_type" value="historical_review">
+                                        <label for="mode-historical-review">历史复盘</label>
+                                    </div>
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="llm-prompt">请输入您的需求：</label>
+                                    <textarea id="llm-prompt" rows="4" placeholder="未来规划示例：明天下午三点要开会，需要提前准备一个小时&#10;历史复盘示例：记录完成了周二的项目评审会议"></textarea>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label>选择模型：</label>
+                                    <div class="radio-group">
+                                        <input type="radio" id="model-deepseek-chat" name="model" value="deepseek-chat" checked>
+                                        <label for="model-deepseek-chat">DeepSeek V3</label>
+
+                                        <input type="radio" id="model-deepseek-reasoner" name="model" value="deepseek-reasoner">
+                                        <label for="model-deepseek-reasoner">DeepSeek R1 (Slow)</label>
+                                        
+                                        <input type="radio" id="model-gpt4" name="model" value="gpt-4o">
+                                        <label for="model-gpt4">GPT-4o</label>
+                                    </div>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label>重复设置：</label>
+                                    <select id="recurrence">
+                                        <option value="">不重复</option>
+                                        <option value="daily">每天</option>
+                                        <option value="weekly">每周</option>
+                                        <option value="weekdays">工作日</option>
+                                        <option value="monthly">每月</option>
+                                        <option value="yearly">每年</option>
+                                    </select>
+                                    
+                                    <div id="end-date-container" class="hidden">
+                                        <label for="end-date">结束日期：</label>
+                                        <input type="date" id="end-date">
+                                    </div>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label>显示选项：</label>
+                                    <div class="checkbox-group">
+                                        <input type="checkbox" id="show-summary" checked>
+                                        <label for="show-summary">显示处理摘要</label>
+                                        
+                                        <input type="checkbox" id="show-changes" checked>
+                                        <label for="show-changes">显示变更详情</label>
+                                        
+                                        <input type="checkbox" id="show-events">
+                                        <label for="show-events">显示所有事件</label>
+                                        
+                                        <input type="checkbox" id="show-unchanged">
+                                        <label for="show-unchanged">显示未变化事件</label>
+                                    </div>
+                                </div>
+                                
+                                <div class="form-actions">
+                                    <button id="submit-llm" class="primary-button">提交查询</button>
+                                    <div id="loading-indicator" class="hidden">
+                                        <div class="spinner"></div>
+                                        <span>正在处理...</span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div id="llm-results" class="hidden">
+                                <h3>处理结果</h3>
+                                <div class="result-section">
+                                    <h4>模型回复</h4>
+                                    <pre id="llm-response"></pre>
+                                </div>
+                                
+                                <div id="summary-section" class="result-section hidden">
+                                    <h4>处理摘要</h4>
+                                    <pre id="summary-content"></pre>
+                                </div>
+                                
+                                <div id="changes-section" class="result-section hidden">
+                                    <h4>事件变更</h4>
+                                    <pre id="changes-content"></pre>
+                                </div>
+                                
+                                <div id="events-section" class="result-section hidden">
+                                    <h4>当前所有事件</h4>
+                                    <pre id="events-content"></pre>
+                                </div>
+                                
+                                <div id="error-section" class="result-section hidden">
+                                    <h4>错误信息</h4>
+                                    <pre id="error-content"></pre>
+                                </div>
+                                
+                                <button id="new-query" class="secondary-button">新的查询</button>
+                            </div>
                         </div>
-                        
-                        <div id="summary-section" class="result-section hidden">
-                            <h4>处理摘要</h4>
-                            <pre id="summary-content"></pre>
-                        </div>
-                        
-                        <div id="changes-section" class="result-section hidden">
-                            <h4>事件变更</h4>
-                            <pre id="changes-content"></pre>
-                        </div>
-                        
-                        <div id="events-section" class="result-section hidden">
-                            <h4>当前所有事件</h4>
-                            <pre id="events-content"></pre>
-                        </div>
-                        
-                        <div id="error-section" class="result-section hidden">
-                            <h4>错误信息</h4>
-                            <pre id="error-content"></pre>
-                        </div>
-                        
-                        <button id="new-query" class="secondary-button">新的查询</button>
                     </div>
                 </div>
             </div>
