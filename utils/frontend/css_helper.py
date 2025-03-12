@@ -1737,6 +1737,43 @@ input[type="time"]:focus {
     overflow: visible;
     margin-right: -10px;
 }
+
+/* 禁用功能样式 */
+.disabled-feature {
+    position: relative;
+    opacity: 0.7;
+    background-color: #f8f8f8;
+    border-radius: var(--border-radius-sm);
+    padding: 15px;
+    border: 1px dashed #ccc;
+    margin-bottom: 20px;
+}
+
+.feature-badge {
+    position: absolute;
+    top: -10px;
+    right: 10px;
+    background-color: #f0ad4e;
+    color: white;
+    font-size: 12px;
+    padding: 3px 8px;
+    border-radius: 12px;
+    font-weight: 600;
+    box-shadow: var(--shadow-sm);
+}
+
+.disabled-text {
+    color: #999;
+}
+
+input[disabled] {
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+input[disabled] + label {
+    cursor: not-allowed;
+}
     '''
     
     with open('static/css/style.css', 'w', encoding='utf-8') as f:

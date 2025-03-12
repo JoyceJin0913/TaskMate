@@ -1943,12 +1943,12 @@ function submitLLMQuery() {
     const showUnchangedElement = document.getElementById('show-unchanged');
     const showUnchanged = showUnchangedElement ? showUnchangedElement.checked : false;
     
+    // 获取查询类型 - 即使禁用也使用默认值
+    let queryType = 'future_planning'; // 默认使用未来规划模式
     const queryTypeInput = document.querySelector('input[name="query_type"]:checked');
-    if (!queryTypeInput) {
-        console.error('Query type selection not found');
-        return;
+    if (queryTypeInput) {
+        queryType = queryTypeInput.value;
     }
-    const queryType = queryTypeInput.value;
     
     // 显示加载指示器
     const loadingIndicator = document.getElementById('loading-indicator');
