@@ -426,21 +426,6 @@ button:active {
     background-color: #4CAF50;
     color: white;
     border-color: #4CAF50;
-    transform: translateY(-50%); /* 保持原位置 */
-}
-
-.day-column .complete-button:hover {
-    transform: none; /* 保持原位置 */
-}
-
-/* 覆盖任何可能的继承变换 */
-button.complete-button:hover {
-    transform: translateY(-50%);
-    box-shadow: none;
-}
-
-.day-column button.complete-button:hover {
-    transform: none;
 }
 
 /* 已完成视图样式 */
@@ -544,8 +529,8 @@ button.complete-button:hover {
     position: sticky; /* 使时间列固定 */
     left: 0; /* 固定在左侧 */
     z-index: 50; /* 确保在最上层 */
-    box-shadow: 2px 0 5px rgba(0, 0, 0, 0.05); /* 添加轻微阴影效果 */
     width: 60px; /* 固定宽度 */
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); /* 添加轻微阴影效果 */
 }
 
 .time-cell {
@@ -556,36 +541,11 @@ button.complete-button:hover {
     line-height: 30px; /* 垂直居中 */
     border-bottom: 1px dashed var(--border-color); /* 添加分隔线 */
     color: var(--text-light);
-}
-
-/* 时间标签样式 */
-.time-label {
-    position: absolute;
-    right: 10px;
-    font-size: 12px;
-    color: var(--text-light);
-    font-weight: 500;
-    background-color: var(--background-color);
-    padding: 2px 4px;
-    border-radius: 3px;
-    transform: translateY(-50%);
-    z-index: 5;
-}
-
-/* 小时线样式 */
-.hour-line {
-    position: absolute;
-    left: 0;
-    right: 0;
-    height: 1px;
-    background-color: var(--border-color);
-    z-index: 1;
-}
-
-/* 半小时线样式 */
-.hour-line.half-hour {
-    border-top: 1px dotted var(--border-color);
-    opacity: 0.7;
+    background-color: var(--card-color); /* 添加背景色 */
+    border-radius: var(--border-radius-sm); /* 添加圆角 */
+    font-weight: 600; /* 加粗字体 */
+    color: var(--text-color); /* 改变字体颜色 */
+    font-size: 13px; /* 调整字体大小 */
 }
 
 .week-day-column, .day-column {
@@ -607,28 +567,20 @@ button.complete-button:hover {
     z-index: 10;
 }
 
-/* 日期名称样式 */
-.day-name {
-    font-size: 14px;
-    font-weight: 600;
-    margin-bottom: 3px;
-}
-
-/* 日期数字样式 */
-.day-date {
-    font-size: 12px;
-    color: var(--text-light);
-}
-
 .week-day-header.today {
     background-color: var(--today-highlight);
     color: var(--primary-color);
     font-weight: 700;
 }
 
-.week-day-header.today .day-date {
-    color: var(--primary-color);
-    font-weight: 600;
+/* 小时线样式 */
+.hour-line {
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background-color: var(--border-color);
+    z-index: 1;
 }
 
 /* 当前时间指示线 */
@@ -660,7 +612,7 @@ button.complete-button:hover {
     left: 5px;
     right: 5px;
     padding: 8px 10px;
-    z-index: 10;
+    z-index: 5; /* 基础层级 */
     min-height: 28px;
     box-shadow: var(--shadow-sm);
     overflow: hidden;
@@ -674,15 +626,40 @@ button.complete-button:hover {
     border-left-style: solid;
 }
 
+/* 未完成事件的层级更高 */
+.week-day-column .event-item:not(.completed),
+.day-column .event-item:not(.completed) {
+    z-index: 15; /* 比已完成事件高很多层 */
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.15); /* 更明显的阴影 */
+}
+
+/* 已完成事件的层级较低 */
+.week-day-column .event-item.completed,
+.day-column .event-item.completed {
+    z-index: 3; /* 比未完成事件低很多层 */
+    opacity: 0.65; /* 降低不透明度 */
+    filter: grayscale(30%); /* 添加灰度效果 */
+}
+
 .week-day-column .event-item:hover,
 .day-column .event-item:hover {
     transform: translateY(-2px);
     box-shadow: var(--shadow-md);
-    z-index: 20;
+    z-index: 20; /* 悬停时层级最高 */
     min-height: auto;
     height: auto !important;
     max-height: none !important;
     white-space: normal;
+}
+
+/* 周视图和日视图中的已完成事件样式 */
+.day-column .event-item.completed,
+.week-day-column .event-item.completed {
+    text-decoration: line-through;
+    opacity: 0.65;
+    background: rgba(240, 240, 240, 0.9) !important;
+    color: #666 !important;
+    border-left: 3px solid #999 !important;
 }
 
 .week-day-column .event-item .event-time,
@@ -1041,7 +1018,6 @@ select:focus {
     border-top-color: var(--primary-color);
     animation: spin 1s ease-in-out infinite;
 }
-
 @keyframes spin {
     to { transform: rotate(360deg); }
 }

@@ -1079,7 +1079,8 @@ function renderWeekView() {
             eventElement.style.right = '5px';
             eventElement.style.height = `${currentDayPosition.height}px`;
             eventElement.style.minHeight = `${minHeight}px`;
-            eventElement.style.zIndex = '2';
+            // 移除直接设置 z-index，让 CSS 来控制
+            // eventElement.style.zIndex = '2';
             
             // 创建时间和标题的分隔显示
             const timeElement = document.createElement('div');
@@ -1165,7 +1166,8 @@ function renderWeekView() {
                     eventElement.style.right = '5px';
                     eventElement.style.height = `${nextDayPosition.height}px`;
                     eventElement.style.minHeight = `${minHeight}px`;
-                    eventElement.style.zIndex = '2';
+                    // 移除直接设置 z-index，让 CSS 来控制
+                    // eventElement.style.zIndex = '2';
                     
                     // 创建时间和标题的分隔显示
                     const timeElement = document.createElement('div');
@@ -1314,7 +1316,8 @@ function renderDayView() {
             eventElement.style.right = '5px';
             eventElement.style.height = `${position.height}px`;
             eventElement.style.minHeight = `${minHeight}px`;
-            eventElement.style.zIndex = '2';
+            // 移除直接设置 z-index，让 CSS 来控制
+            // eventElement.style.zIndex = '2';
             
             // 创建时间和标题的分隔显示
             const timeElement = document.createElement('div');
@@ -1412,7 +1415,8 @@ function renderDayView() {
                 eventElement.style.right = '5px';
                 eventElement.style.height = `${position.height}px`;
                 eventElement.style.minHeight = `${minHeight}px`;
-                eventElement.style.zIndex = '2';
+                // 移除直接设置 z-index，让 CSS 来控制
+                // eventElement.style.zIndex = '2';
                 
                 // 创建时间和标题的分隔显示
                 const timeElement = document.createElement('div');
