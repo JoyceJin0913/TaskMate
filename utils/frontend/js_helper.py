@@ -943,6 +943,26 @@ function calculateEventPosition(timeRange) {
     return { top, height };
 }
 
+// 添加小时线和半小时线
+function addHourLines(column) {
+    // 添加时间背景网格线
+    for (let hour = 0; hour < 24; hour++) {
+        // 整点线
+        const hourLine = document.createElement('div');
+        hourLine.className = 'hour-line';
+        hourLine.style.top = `${hour * 40 + 40}px`;
+        column.appendChild(hourLine);
+        
+        // 半小时线
+        if (hour < 23) {  // 避免添加23:30的线，因为它会与下一天的0:00重叠
+            const halfHourLine = document.createElement('div');
+            halfHourLine.className = 'hour-line half-hour';
+            halfHourLine.style.top = `${hour * 40 + 60}px`;  // +40(整点) +20(半小时)
+            column.appendChild(halfHourLine);
+        }
+    }
+}
+
 // 渲染周视图
 function renderWeekView() {
     const weekGrid = document.getElementById('week-grid');
@@ -962,7 +982,6 @@ function renderWeekView() {
         const timeLabel = document.createElement('div');
         timeLabel.className = 'time-label';
         timeLabel.textContent = `${hour}:00`;
-        timeLabel.style.position = 'absolute';
         timeLabel.style.top = `${hour * 40 + 30}px`;
         timeColumn.appendChild(timeLabel);
     }
@@ -1012,18 +1031,7 @@ function renderWeekView() {
         dayColumn.appendChild(dayHeader);
         
         // 添加时间背景网格线
-        for (let hour = 0; hour < 24; hour++) {
-            const hourLine = document.createElement('div');
-            hourLine.className = 'hour-line';
-            hourLine.style.position = 'absolute';
-            hourLine.style.left = '0';
-            hourLine.style.right = '0';
-            hourLine.style.top = `${hour * 40 + 40}px`;
-            hourLine.style.height = '1px';
-            hourLine.style.backgroundColor = '#eee';
-            hourLine.style.zIndex = '1';
-            dayColumn.appendChild(hourLine);
-        }
+        addHourLines(dayColumn);
         
         dayColumns.push(dayColumn);
         weekGrid.appendChild(dayColumn);
@@ -1220,7 +1228,7 @@ function renderDayView() {
     
     // 添加空白头部单元格
     const emptyHeader = document.createElement('div');
-    emptyHeader.className = 'day-header';
+    emptyHeader.className = 'week-day-header';
     timeColumn.appendChild(emptyHeader);
     
     // 添加时间标签
@@ -1228,7 +1236,6 @@ function renderDayView() {
         const timeLabel = document.createElement('div');
         timeLabel.className = 'time-label';
         timeLabel.textContent = `${hour}:00`;
-        timeLabel.style.position = 'absolute';
         timeLabel.style.top = `${hour * 40 + 30}px`;
         timeColumn.appendChild(timeLabel);
     }
@@ -1241,23 +1248,31 @@ function renderDayView() {
     
     // 添加日期标题
     const dayHeader = document.createElement('div');
-    dayHeader.className = 'day-header';
-    dayHeader.textContent = `${currentDate.getFullYear()}年${currentDate.getMonth() + 1}月${currentDate.getDate()}日 ${['周日', '周一', '周二', '周三', '周四', '周五', '周六'][currentDate.getDay()]}`;
+    dayHeader.className = 'week-day-header';
+    
+    // 检查是否是今天
+    const today = new Date();
+    if (currentDate.getDate() === today.getDate() && 
+        currentDate.getMonth() === today.getMonth() && 
+        currentDate.getFullYear() === today.getFullYear()) {
+        dayHeader.classList.add('today');
+    }
+    
+    // 创建日期名称和日期数字的分隔显示
+    const dayName = document.createElement('div');
+    dayName.className = 'day-name';
+    dayName.textContent = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'][currentDate.getDay()];
+    
+    const dayDateEl = document.createElement('div');
+    dayDateEl.className = 'day-date';
+    dayDateEl.textContent = `${currentDate.getMonth() + 1}/${currentDate.getDate()}`;
+    
+    dayHeader.appendChild(dayName);
+    dayHeader.appendChild(dayDateEl);
     dayColumn.appendChild(dayHeader);
     
     // 添加时间背景网格线
-    for (let hour = 0; hour < 24; hour++) {
-        const hourLine = document.createElement('div');
-        hourLine.className = 'hour-line';
-        hourLine.style.position = 'absolute';
-        hourLine.style.left = '0';
-        hourLine.style.right = '0';
-        hourLine.style.top = `${hour * 40 + 30}px`;
-        hourLine.style.height = '1px';
-        hourLine.style.backgroundColor = '#eee';
-        hourLine.style.zIndex = '1';
-        dayColumn.appendChild(hourLine);
-    }
+    addHourLines(dayColumn);
     
     dayGrid.appendChild(dayColumn);
     
