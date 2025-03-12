@@ -1575,7 +1575,7 @@ input[type="time"]:focus {
 
 .time-review-timeline-container {
     position: relative;
-    padding: 40px 10px 50px;
+    padding: 40px 10px 60px;
     margin-bottom: 10px;
     background-color: #f9f9f9;
     border-bottom: 1px solid #ddd;
@@ -1602,6 +1602,9 @@ input[type="time"]:focus {
     transform: translateX(-50%);
     font-size: 12px;
     color: #666;
+    white-space: nowrap;
+    min-width: 40px;
+    text-align: center;
 }
 
 .time-review-time-bar {
@@ -1625,6 +1628,28 @@ input[type="time"]:focus {
     z-index: 2;
 }
 
+/* 跨天事件的时间条样式 */
+.time-review-time-bar.overnight-event {
+    background-image: linear-gradient(45deg, rgba(255, 255, 255, 0.3) 25%, transparent 25%, transparent 50%, rgba(255, 255, 255, 0.3) 50%, rgba(255, 255, 255, 0.3) 75%, transparent 75%, transparent);
+    background-size: 20px 20px;
+    animation: overnight-stripe 1s linear infinite;
+}
+
+.planned-time-bar.overnight-event {
+    background-color: #c8e6c9;
+    border: 1px solid #66bb6a;
+}
+
+.actual-time-bar.overnight-event {
+    background-color: #bbdefb;
+    border: 1px solid #42a5f5;
+}
+
+@keyframes overnight-stripe {
+    0% { background-position: 0 0; }
+    100% { background-position: 20px 0; }
+}
+
 .time-review-bar-label {
     position: absolute;
     top: -20px;
@@ -1639,7 +1664,7 @@ input[type="time"]:focus {
 
 .time-review-diff-info {
     position: absolute;
-    bottom: -35px;
+    bottom: -45px;
     left: 0;
     right: 0;
     text-align: center;
@@ -1648,6 +1673,14 @@ input[type="time"]:focus {
     padding: 5px;
     background-color: rgba(255, 255, 255, 0.8);
     border-radius: 3px;
+}
+
+/* 跨天事件差异信息的样式 */
+.time-review-diff-info.overnight-diff {
+    background-color: rgba(255, 236, 179, 0.9);
+    border-left: 3px solid #ffc107;
+    font-weight: 500;
+    color: #5d4037;
 }
 
 .time-review-event-notes {

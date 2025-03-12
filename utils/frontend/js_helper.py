@@ -2457,7 +2457,8 @@ function renderTimeReviewView() {
                     
                     // 为了显示美观，在时间轴两端各添加30分钟的缓冲
                     const timelineStartMinutes = Math.max(0, minStartMinutes - 30);
-                    const timelineEndMinutes = Math.min(24 * 60, maxEndMinutes + 30);
+                    // 允许结束时间超过24小时（跨天事件）
+                    const timelineEndMinutes = maxEndMinutes + 30;
                     const timelineDuration = timelineEndMinutes - timelineStartMinutes;
                     
                     // 创建时间轴容器
@@ -2483,7 +2484,16 @@ function renderTimeReviewView() {
                             
                             const label = document.createElement('div');
                             label.className = 'time-review-hour-label';
-                            label.textContent = `${hour}:00`;
+                            // 对于超过24小时的时间，显示为"次日 HH:00"
+                            if (hour >= 24) {
+                                // 使用非换行空格确保"次日"不会换行
+                                label.textContent = `次日\u00A0${hour - 24}:00`;
+                                label.style.color = '#e91e63'; // 使用不同颜色标识次日时间
+                                // 添加white-space: nowrap确保不换行
+                                label.style.whiteSpace = 'nowrap';
+                            } else {
+                                label.textContent = `${hour}:00`;
+                            }
                             marker.appendChild(label);
                             
                             timeline.appendChild(marker);
@@ -2501,7 +2511,13 @@ function renderTimeReviewView() {
                     
                     const plannedLabel = document.createElement('div');
                     plannedLabel.className = 'time-review-bar-label';
-                    plannedLabel.textContent = `计划: ${event.time_range}`;
+                    // 如果是跨天事件，添加标记
+                    if (plannedTime.endMinutes > 24 * 60) {
+                        plannedLabel.textContent = `计划: ${event.time_range} (跨天)`;
+                        plannedBar.classList.add('overnight-event');
+                    } else {
+                        plannedLabel.textContent = `计划: ${event.time_range}`;
+                    }
                     plannedBar.appendChild(plannedLabel);
                     
                     timeline.appendChild(plannedBar);
@@ -2516,7 +2532,13 @@ function renderTimeReviewView() {
                     
                     const actualLabel = document.createElement('div');
                     actualLabel.className = 'time-review-bar-label';
-                    actualLabel.textContent = `实际: ${event.actual_time_range}`;
+                    // 如果是跨天事件，添加标记
+                    if (actualTime.endMinutes > 24 * 60) {
+                        actualLabel.textContent = `实际: ${event.actual_time_range} (跨天)`;
+                        actualBar.classList.add('overnight-event');
+                    } else {
+                        actualLabel.textContent = `实际: ${event.actual_time_range}`;
+                    }
                     actualBar.appendChild(actualLabel);
                     
                     timeline.appendChild(actualBar);
@@ -2531,6 +2553,19 @@ function renderTimeReviewView() {
                     diffInfo.className = 'time-review-diff-info';
                     
                     let diffText = '';
+                    
+                    // 检查是否有跨天情况
+                    const plannedIsOvernight = plannedTime.endMinutes > 24 * 60;
+                    const actualIsOvernight = actualTime.endMinutes > 24 * 60;
+                    
+                    if (plannedIsOvernight !== actualIsOvernight) {
+                        if (actualIsOvernight) {
+                            diffText += '实际时间跨天，而计划时间未跨天。';
+                        } else {
+                            diffText += '计划时间跨天，而实际时间未跨天。';
+                        }
+                    }
+                    
                     if (startDiff !== 0) {
                         const startDiffAbs = Math.abs(startDiff);
                         const startDiffHours = Math.floor(startDiffAbs / 60);
@@ -2561,6 +2596,10 @@ function renderTimeReviewView() {
                     
                     if (diffText) {
                         diffInfo.textContent = diffText;
+                        // 如果有跨天情况，添加特殊样式
+                        if (plannedIsOvernight || actualIsOvernight) {
+                            diffInfo.classList.add('overnight-diff');
+                        }
                         timeline.appendChild(diffInfo);
                     }
                     
