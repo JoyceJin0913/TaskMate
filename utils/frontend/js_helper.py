@@ -156,6 +156,28 @@ document.addEventListener('DOMContentLoaded', function() {
     if (actualStartTimeInput) {
         actualStartTimeInput.value = currentTime;
     }
+    
+    // 为时间输入和跨天事件复选框添加事件监听器
+    const actualEndTimeInput = document.getElementById('actual-end-time');
+    const isOvernightCheckbox = document.getElementById('is-overnight-event');
+    
+    if (actualStartTimeInput && actualEndTimeInput && isOvernightCheckbox) {
+        // 验证时间函数
+        const validateTimes = () => {
+            if (actualStartTimeInput.value && actualEndTimeInput.value) {
+                if (!isOvernightCheckbox.checked && actualStartTimeInput.value >= actualEndTimeInput.value) {
+                    actualEndTimeInput.setCustomValidity('结束时间必须晚于开始时间，或勾选"跨天事件"选项');
+                } else {
+                    actualEndTimeInput.setCustomValidity('');
+                }
+            }
+        };
+        
+        // 添加事件监听器
+        actualStartTimeInput.addEventListener('change', validateTimes);
+        actualEndTimeInput.addEventListener('change', validateTimes);
+        isOvernightCheckbox.addEventListener('change', validateTimes);
+    }
 });
 
 // 初始化视图
@@ -2173,6 +2195,7 @@ function renderCompletedView() {
 function clearCompleteTaskForm() {
     document.getElementById('actual-start-time').value = '';
     document.getElementById('actual-end-time').value = '';
+    document.getElementById('is-overnight-event').checked = false;
     document.getElementById('completion-notes').value = '';
     document.getElementById('reflection-notes').value = '';
 }
@@ -2202,6 +2225,7 @@ function markEventCompleted(eventId, eventDate) {
     
     document.getElementById('actual-start-time').value = currentTime;
     document.getElementById('actual-end-time').value = '';
+    document.getElementById('is-overnight-event').checked = false;
 
     // 显示完成任务对话框
     document.getElementById('complete-task-dialog').classList.remove('hidden');
@@ -2216,25 +2240,25 @@ function submitCompleteTask() {
 
     const startTime = document.getElementById('actual-start-time').value;
     const endTime = document.getElementById('actual-end-time').value;
+    const isOvernightEvent = document.getElementById('is-overnight-event').checked;
     const completionNotes = document.getElementById('completion-notes').value.trim();
     const reflectionNotes = document.getElementById('reflection-notes').value.trim();
 
     // 构建时间范围字符串
     let actualTimeRange = '';
     if (startTime && endTime) {
-        // 验证开始时间是否小于结束时间
-        if (startTime >= endTime) {
-            alert('开始时间必须早于结束时间');
+        // 验证时间
+        if (!isOvernightEvent && startTime >= endTime) {
+            alert('开始时间必须早于结束时间，或者勾选"跨天事件"选项');
             return;
         }
+        // 对于跨天事件，允许结束时间小于开始时间
         actualTimeRange = `${startTime}-${endTime}`;
     } else if (startTime || endTime) {
         // 如果只填写了一个时间，提示用户
         alert('请同时填写开始时间和结束时间，或者都不填写');
         return;
     }
-
-    // 注意：我们不再需要 isValidTimeRange 函数，因为我们现在使用 HTML5 的 time 输入类型来验证时间格式
 
     // 准备请求数据
     const requestData = {
@@ -2406,12 +2430,21 @@ function renderTimeReviewView() {
                         const [start, end] = timeRange.split('-').map(t => t.trim());
                         const [startHour, startMin] = start.split(':').map(Number);
                         const [endHour, endMin] = end.split(':').map(Number);
+                        
+                        const startMinutes = startHour * 60 + startMin;
+                        let endMinutes = endHour * 60 + endMin;
+                        
+                        // 处理跨天事件（结束时间小于开始时间，表示跨越到第二天）
+                        if (endMinutes < startMinutes) {
+                            endMinutes += 24 * 60; // 添加24小时
+                        }
+                        
                         return {
                             start: { hour: startHour, minute: startMin },
                             end: { hour: endHour, minute: endMin },
-                            startMinutes: startHour * 60 + startMin,
-                            endMinutes: endHour * 60 + endMin,
-                            durationMinutes: (endHour * 60 + endMin) - (startHour * 60 + startMin)
+                            startMinutes: startMinutes,
+                            endMinutes: endMinutes,
+                            durationMinutes: endMinutes - startMinutes
                         };
                     };
                     

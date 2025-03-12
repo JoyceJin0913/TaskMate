@@ -223,6 +223,10 @@ def create_templates():
                             <input type="time" id="actual-end-time">
                         </div>
                     </div>
+                    <div class="overnight-checkbox">
+                        <input type="checkbox" id="is-overnight-event">
+                        <label for="is-overnight-event">跨天事件（结束时间在次日）</label>
+                    </div>
                 </div>
                 <div class="form-group">
                     <label for="completion-notes">完成情况备注（可选）：</label>

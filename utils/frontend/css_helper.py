@@ -1858,6 +1858,21 @@ input[disabled] {
 input[disabled] + label {
     cursor: not-allowed;
 }
+
+.overnight-checkbox {
+    margin-top: 10px;
+    display: flex;
+    align-items: center;
+}
+
+.overnight-checkbox input[type="checkbox"] {
+    margin-right: 8px;
+}
+
+.overnight-checkbox label {
+    font-size: 14px;
+    color: #555;
+}
     '''
     
     with open('static/css/style.css', 'w', encoding='utf-8') as f:
