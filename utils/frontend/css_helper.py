@@ -234,15 +234,16 @@ button {
     border: none;
     border-radius: var(--border-radius-sm);
     cursor: pointer;
-    transition: all var(--transition-speed);
+    transition: background-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
     font-weight: 500;
     box-shadow: var(--shadow-sm);
+    transform: translateY(0);
 }
 
 button:hover {
     background-color: var(--primary-dark);
-    transform: translateY(-2px);
     box-shadow: var(--shadow-md);
+    transform: translateY(0);
 }
 
 button:active {
@@ -522,15 +523,16 @@ button.complete-button:hover {
     border: none;
     border-radius: var(--border-radius-sm);
     cursor: pointer;
-    transition: all var(--transition-speed);
+    transition: background-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
     font-weight: 500;
     box-shadow: var(--shadow-sm);
+    transform: translateY(0);
 }
 
 .action-button:hover {
     background-color: var(--primary-dark);
-    transform: translateY(-2px);
     box-shadow: var(--shadow-md);
+    transform: translateY(0);
 }
 
 .action-button:active {
@@ -1024,8 +1026,9 @@ select:focus {
     cursor: pointer;
     font-size: 16px;
     font-weight: 600;
-    transition: all var(--transition-speed);
+    transition: background-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
     box-shadow: var(--shadow-sm);
+    transform: translateY(0);
 }
 
 .secondary-button {
@@ -1037,13 +1040,14 @@ select:focus {
     cursor: pointer;
     font-size: 16px;
     font-weight: 500;
-    transition: all var(--transition-speed);
+    transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+    transform: translateY(0);
 }
 
 .primary-button:hover {
     background-color: var(--primary-dark);
-    transform: translateY(-2px);
     box-shadow: var(--shadow-md);
+    transform: translateY(0);
 }
 
 .primary-button:active {
@@ -1053,6 +1057,7 @@ select:focus {
 .secondary-button:hover {
     background-color: var(--border-color);
     border-color: var(--text-color-light);
+    transform: translateY(0);
 }
 
 #loading-indicator {
@@ -1178,7 +1183,8 @@ select:focus {
     text-align: center;
     white-space: nowrap;
     box-shadow: var(--shadow-sm);
-    transition: all var(--transition-speed);
+    transition: background-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+    transform: translateY(0); /* 设置初始transform值 */
 }
 
 /* 事件详情面板中的删除按钮样式 */
@@ -1191,6 +1197,7 @@ select:focus {
 #event-details-content .delete-button:hover {
     background-color: #d32f2f;
     box-shadow: var(--shadow-md);
+    transform: translateY(0); /* 保持相同的transform值 */
 }
 
 /* 事件详情面板中的完成按钮样式 */
@@ -1203,6 +1210,7 @@ select:focus {
 #event-details-content .complete-button:hover {
     background-color: #388E3C;
     box-shadow: var(--shadow-md);
+    transform: translateY(0); /* 保持相同的transform值 */
 }
 
 /* 响应式设计 */
@@ -1269,6 +1277,7 @@ select:focus {
     border: none;
     font-weight: 500;
     box-shadow: var(--shadow-sm);
+    transform: translateY(0);
 }
 
 .dialog-buttons .secondary-button {
@@ -1279,8 +1288,8 @@ select:focus {
 
 .dialog-buttons .primary-button:hover {
     background-color: var(--primary-dark);
-    transform: translateY(-2px);
     box-shadow: var(--shadow-md);
+    transform: translateY(0);
 }
 
 .dialog-buttons .primary-button:active {
@@ -1482,6 +1491,7 @@ select:focus {
     align-items: center;
     justify-content: center;
     z-index: 10;
+    transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
 }
 
 /* 周视图和日视图中的删除按钮样式 */
@@ -1496,6 +1506,12 @@ select:focus {
 .delete-button:hover {
     background-color: #f44336;
     color: white;
+    border-color: #f44336;
+    transform: translateY(-50%); /* 保持与初始状态相同的transform值 */
+}
+
+.day-column .delete-button:hover {
+    transform: none; /* 保持与初始状态相同的transform值 */
 }
 
 /* 时间选择器样式 */
