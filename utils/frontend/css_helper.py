@@ -427,6 +427,21 @@ button:active {
     background-color: #4CAF50;
     color: white;
     border-color: #4CAF50;
+    transform: translateY(-50%); /* 保持原位置 */
+}
+
+.day-column .complete-button:hover {
+    transform: none; /* 保持原位置 */
+}
+
+/* 覆盖任何可能的继承变换 */
+button.complete-button:hover {
+    transform: translateY(-50%);
+    box-shadow: none;
+}
+
+.day-column button.complete-button:hover {
+    transform: none;
 }
 
 /* 已完成视图样式 */
