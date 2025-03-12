@@ -872,7 +872,12 @@ function isOvernightEvent(timeRange) {
     if (parts.length !== 2) return false;
     
     const startTime = parseTimeString(parts[0]);
-    const endTime = parseTimeString(parts[1]);
+    let endTime = parseTimeString(parts[1]);
+    
+    // 如果结束时间是00:00，将其视为24:00（当天结束），不是跨天事件
+    if (endTime.hour === 0 && endTime.minute === 0) {
+        return false;
+    }
     
     // 如果结束时间小于开始时间，则认为是跨天事件
     return endTime.hour < startTime.hour || (endTime.hour === startTime.hour && endTime.minute < startTime.minute);
@@ -883,6 +888,12 @@ function getNextDayTimeRange(timeRange) {
     if (!isOvernightEvent(timeRange)) return null;
     
     const parts = timeRange.split('-');
+    
+    // 如果结束时间是00:00，则不应该在第二天显示
+    if (parts[1].trim() === '00:00') {
+        return null;
+    }
+    
     return `00:00-${parts[1]}`;
 }
 
@@ -890,7 +901,12 @@ function getNextDayTimeRange(timeRange) {
 function getCurrentDayTimeRange(timeRange) {
     if (!isOvernightEvent(timeRange)) return timeRange;
     
+    // 检查结束时间是否为00:00
     const parts = timeRange.split('-');
+    if (parts[1].trim() === '00:00') {
+        return timeRange; // 00:00已经被视为当天结束（24:00）
+    }
+    
     return `${parts[0]}-24:00`;
 }
 
@@ -902,7 +918,12 @@ function calculateEventPosition(timeRange) {
     if (parts.length !== 2) return null;
     
     const startTime = parseTimeString(parts[0]);
-    const endTime = parseTimeString(parts[1]);
+    let endTime = parseTimeString(parts[1]);
+    
+    // 如果结束时间是00:00，将其视为24:00（当天结束）
+    if (endTime.hour === 0 && endTime.minute === 0) {
+        endTime.hour = 24;
+    }
     
     // 计算开始位置（相对于时间轴顶部）
     const top = (startTime.hour + startTime.minute / 60) * 40 + 30; // 30px是头部高度
