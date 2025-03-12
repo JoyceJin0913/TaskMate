@@ -605,7 +605,7 @@ button.complete-button:hover {
     border-bottom: 1px solid var(--border-color);
     position: sticky;
     top: 0;
-    z-index: 10;
+    z-index: 16;
 }
 
 /* 日期名称样式 */
