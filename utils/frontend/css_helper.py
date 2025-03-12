@@ -43,7 +43,7 @@ body {
 }
 
 .container {
-    max-width: 1200px;
+    max-width: 1500px;
     margin: 0 auto;
     padding: 20px;
 }
@@ -302,7 +302,8 @@ button:active {
 #month-grid {
     display: none;
     grid-template-columns: repeat(7, 1fr);
-    gap: 8px;
+    gap: 5px;
+    width: 100%;
 }
 
 #month-grid.active {
@@ -313,9 +314,12 @@ button:active {
     min-height: 100px;
     background-color: var(--card-color);
     border-radius: var(--border-radius-sm);
-    padding: 8px;
+    padding: 5px;
     border: 1px solid var(--border-color);
     transition: all var(--transition-speed);
+    position: relative;
+    overflow: visible;
+    width: 100%; /* 固定宽度 */
 }
 
 .day-cell:hover {
@@ -347,6 +351,7 @@ button:active {
     white-space: nowrap;
     cursor: pointer;
     position: relative;
+    transition: all var(--transition-speed);
 }
 
 /* 已完成事件样式 */
@@ -1627,6 +1632,25 @@ input[type="time"]:focus {
     .date-controls {
         flex-wrap: wrap;
     }
+}
+
+/* 月视图中的事件项悬停效果 */
+.day-cell .event-item:hover {
+    white-space: normal;
+    z-index: 100;
+    box-shadow: var(--shadow-md);
+    transform: translateY(-1px);
+    min-height: auto;
+    height: auto !important;
+    max-height: none !important;
+    position: relative;
+    border-radius: var(--border-radius-sm);
+    padding: 4px 25px 4px 5px;
+    width: auto;
+    max-width: 200px;
+    word-wrap: break-word;
+    overflow: visible;
+    margin-right: -10px;
 }
     '''
     

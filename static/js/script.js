@@ -25,77 +25,124 @@ document.addEventListener('DOMContentLoaded', function() {
     initializeView();
     
     // 绑定视图切换按钮
-    document.getElementById('month-view').addEventListener('click', function() {
-        switchView('month');
-    });
+    const monthViewBtn = document.getElementById('month-view');
+    if (monthViewBtn) {
+        monthViewBtn.addEventListener('click', function() {
+            switchView('month');
+        });
+    }
     
-    document.getElementById('week-view').addEventListener('click', function() {
-        switchView('week');
-    });
+    const weekViewBtn = document.getElementById('week-view');
+    if (weekViewBtn) {
+        weekViewBtn.addEventListener('click', function() {
+            switchView('week');
+        });
+    }
     
-    document.getElementById('day-view').addEventListener('click', function() {
-        switchView('day');
-    });
+    const dayViewBtn = document.getElementById('day-view');
+    if (dayViewBtn) {
+        dayViewBtn.addEventListener('click', function() {
+            switchView('day');
+        });
+    }
     
     // 列表视图和已完成按钮暂时隐藏，但保留事件绑定代码以便将来恢复
     /*
-    document.getElementById('list-view').addEventListener('click', function() {
-        switchView('list');
-    });
+    const listViewBtn = document.getElementById('list-view');
+    if (listViewBtn) {
+        listViewBtn.addEventListener('click', function() {
+            switchView('list');
+        });
+    }
     
-    document.getElementById('completed-view').addEventListener('click', function() {
-        switchView('completed');
-    });
+    const completedViewBtn = document.getElementById('completed-view');
+    if (completedViewBtn) {
+        completedViewBtn.addEventListener('click', function() {
+            switchView('completed');
+        });
+    }
     */
     
     // 绑定主要分类按钮
-    document.getElementById('planning-view').addEventListener('click', function() {
-        switchView('planning');
-    });
+    const planningViewBtn = document.getElementById('planning-view');
+    if (planningViewBtn) {
+        planningViewBtn.addEventListener('click', function() {
+            switchView('planning');
+        });
+    }
     
-    document.getElementById('reviewing-view').addEventListener('click', function() {
-        switchView('reviewing');
-    });
+    const reviewingViewBtn = document.getElementById('reviewing-view');
+    if (reviewingViewBtn) {
+        reviewingViewBtn.addEventListener('click', function() {
+            switchView('reviewing');
+        });
+    }
     
-    document.getElementById('schedule-section-btn').addEventListener('click', function() {
-        toggleScheduleMenu();
-    });
+    const scheduleSectionBtn = document.getElementById('schedule-section-btn');
+    if (scheduleSectionBtn) {
+        scheduleSectionBtn.addEventListener('click', function() {
+            toggleScheduleMenu();
+        });
+    }
     
     // 绑定日期导航按钮
-    document.getElementById('prev-month').addEventListener('click', previousMonth);
-    document.getElementById('next-month').addEventListener('click', nextMonth);
-    document.getElementById('prev-week').addEventListener('click', previousWeek);
-    document.getElementById('next-week').addEventListener('click', nextWeek);
-    document.getElementById('prev-day').addEventListener('click', previousDay);
-    document.getElementById('next-day').addEventListener('click', nextDay);
+    const prevMonthBtn = document.getElementById('prev-month');
+    if (prevMonthBtn) prevMonthBtn.addEventListener('click', previousMonth);
+    
+    const nextMonthBtn = document.getElementById('next-month');
+    if (nextMonthBtn) nextMonthBtn.addEventListener('click', nextMonth);
+    
+    const prevWeekBtn = document.getElementById('prev-week');
+    if (prevWeekBtn) prevWeekBtn.addEventListener('click', previousWeek);
+    
+    const nextWeekBtn = document.getElementById('next-week');
+    if (nextWeekBtn) nextWeekBtn.addEventListener('click', nextWeek);
+    
+    const prevDayBtn = document.getElementById('prev-day');
+    if (prevDayBtn) prevDayBtn.addEventListener('click', previousDay);
+    
+    const nextDayBtn = document.getElementById('next-day');
+    if (nextDayBtn) nextDayBtn.addEventListener('click', nextDay);
     
     // 绑定事件详情关闭按钮
-    document.getElementById('close-details').addEventListener('click', function() {
-        document.getElementById('event-details').classList.add('hidden');
-    });
+    const closeDetailsBtn = document.getElementById('close-details');
+    if (closeDetailsBtn) {
+        closeDetailsBtn.addEventListener('click', function() {
+            document.getElementById('event-details').classList.add('hidden');
+        });
+    }
     
     // 绑定完成任务对话框事件
-    document.getElementById('close-complete-dialog').addEventListener('click', function() {
-        document.getElementById('complete-task-dialog').classList.add('hidden');
-        // 清空当前正在完成的事件
-        currentCompletingEvent = null;
-        // 清空表单
-        clearCompleteTaskForm();
-    });
+    const closeCompleteDialogBtn = document.getElementById('close-complete-dialog');
+    if (closeCompleteDialogBtn) {
+        closeCompleteDialogBtn.addEventListener('click', function() {
+            document.getElementById('complete-task-dialog').classList.add('hidden');
+            // 清空当前正在完成的事件
+            currentCompletingEvent = null;
+            // 清空表单
+            clearCompleteTaskForm();
+        });
+    }
 
-    document.getElementById('cancel-complete').addEventListener('click', function() {
-        document.getElementById('complete-task-dialog').classList.add('hidden');
-        // 从处理集合中移除事件ID
-        if (currentCompletingEvent) {
-            processingEvents.delete(currentCompletingEvent.id);
-        }
-        // 清空当前正在完成的事件
-        currentCompletingEvent = null;
-        // 清空表单
-        clearCompleteTaskForm();
-    });
+    const cancelCompleteBtn = document.getElementById('cancel-complete');
+    if (cancelCompleteBtn) {
+        cancelCompleteBtn.addEventListener('click', function() {
+            document.getElementById('complete-task-dialog').classList.add('hidden');
+            // 从处理集合中移除事件ID
+            if (currentCompletingEvent) {
+                processingEvents.delete(currentCompletingEvent.id);
+            }
+            // 清空当前正在完成的事件
+            currentCompletingEvent = null;
+            // 清空表单
+            clearCompleteTaskForm();
+        });
+    }
 
-    document.getElementById('submit-complete').addEventListener('click', submitCompleteTask);
+    const submitCompleteBtn = document.getElementById('submit-complete');
+    if (submitCompleteBtn) {
+        submitCompleteBtn.addEventListener('click', submitCompleteTask);
+    }
 
     // 初始化时间选择器
     const now = new Date();
@@ -104,7 +151,10 @@ document.addEventListener('DOMContentLoaded', function() {
     const currentTime = `${currentHour}:${currentMinute}`;
     
     // 当用户打开对话框时，默认设置开始时间为当前时间
-    document.getElementById('actual-start-time').value = currentTime;
+    const actualStartTimeInput = document.getElementById('actual-start-time');
+    if (actualStartTimeInput) {
+        actualStartTimeInput.value = currentTime;
+    }
 });
 
 // 初始化视图
@@ -700,6 +750,34 @@ function renderEventItem(event, container, options = {}) {
         showEventDetails(event);
     });
     
+    // 为月视图中的事件添加悬停处理
+    if (container.classList.contains('day-cell')) {
+        // 保存原始内容，用于计算展开后的高度
+        const originalContent = eventItem.textContent;
+        
+        // 添加鼠标悬停事件处理
+        eventItem.addEventListener('mouseenter', () => {
+            // 如果事件名称被截断（内容溢出），则添加特殊效果
+            if (eventItem.scrollWidth > eventItem.clientWidth) {
+                // 设置z-index确保显示在其他事件之上
+                eventItem.style.zIndex = '100';
+                
+                // 添加阴影效果
+                eventItem.style.boxShadow = 'var(--shadow-sm)';
+                
+                // 设置背景色，确保文本可见
+                const computedStyle = window.getComputedStyle(eventItem);
+                eventItem.style.backgroundColor = computedStyle.backgroundColor;
+            }
+        });
+        
+        // 鼠标离开时恢复原样
+        eventItem.addEventListener('mouseleave', () => {
+            eventItem.style.zIndex = '';
+            eventItem.style.boxShadow = '';
+        });
+    }
+    
     // 添加按钮
     if (!options.hideButtons) {
         if (isCompleted) {
@@ -1030,10 +1108,10 @@ function renderWeekView() {
         if (isOvernight) {
             const nextDayIndex = (dateIndex + 1) % 7;
             if (nextDayIndex >= 0 && nextDayIndex < 7) {
-                const nextDayTimeRange = getNextDayTimeRange(event.time_range);
-                const nextDayPosition = calculateEventPosition(nextDayTimeRange);
-                
-                if (nextDayPosition) {
+            const nextDayTimeRange = getNextDayTimeRange(event.time_range);
+            const nextDayPosition = calculateEventPosition(nextDayTimeRange);
+            
+            if (nextDayPosition) {
                     // 创建事件元素
                     const eventElement = document.createElement('div');
                     eventElement.className = `event-item ${event.type ? 'type-' + event.type : 'type-other'}`;
@@ -1754,19 +1832,27 @@ function markEventCompleted(eventId, completed) {
 // LLM查询相关功能
 document.addEventListener('DOMContentLoaded', function() {
     // 绑定LLM视图按钮
-    document.getElementById('llm-view').addEventListener('click', function() {
-        switchView('llm');
-    });
+    const llmViewButton = document.getElementById('llm-view');
+    if (llmViewButton) {
+        llmViewButton.addEventListener('click', function() {
+            switchView('llm');
+        });
+    }
     
     // 重复设置下拉框变化事件
-    document.getElementById('recurrence').addEventListener('change', function() {
-        const endDateContainer = document.getElementById('end-date-container');
-        if (this.value) {
-            endDateContainer.classList.remove('hidden');
-        } else {
-            endDateContainer.classList.add('hidden');
-        }
-    });
+    const recurrenceDropdown = document.getElementById('recurrence');
+    if (recurrenceDropdown) {
+        recurrenceDropdown.addEventListener('change', function() {
+            const endDateContainer = document.getElementById('end-date-container');
+            if (endDateContainer) {
+                if (this.value) {
+                    endDateContainer.classList.remove('hidden');
+                } else {
+                    endDateContainer.classList.add('hidden');
+                }
+            }
+        });
+    }
     
     // 确保加载指示器初始状态为隐藏
     const loadingIndicator = document.getElementById('loading-indicator');
@@ -1775,37 +1861,84 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     // 提交LLM查询
-    document.getElementById('submit-llm').addEventListener('click', submitLLMQuery);
+    const submitLLMButton = document.getElementById('submit-llm');
+    if (submitLLMButton) {
+        submitLLMButton.addEventListener('click', submitLLMQuery);
+    }
     
     // 新的查询按钮
-    document.getElementById('new-query').addEventListener('click', function() {
-        document.querySelector('.llm-form').classList.remove('hidden');
-        document.getElementById('llm-results').classList.add('hidden');
-        document.getElementById('llm-prompt').value = '';
-    });
+    const newQueryButton = document.getElementById('new-query');
+    if (newQueryButton) {
+        newQueryButton.addEventListener('click', function() {
+            const llmForm = document.querySelector('.llm-form');
+            const llmResults = document.getElementById('llm-results');
+            const llmPrompt = document.getElementById('llm-prompt');
+            
+            if (llmForm) llmForm.classList.remove('hidden');
+            if (llmResults) llmResults.classList.add('hidden');
+            if (llmPrompt) llmPrompt.value = '';
+        });
+    }
 });
 
 // 提交LLM查询
 function submitLLMQuery() {
     // 获取用户输入
-    const prompt = document.getElementById('llm-prompt').value.trim();
+    const promptElement = document.getElementById('llm-prompt');
+    if (!promptElement) {
+        console.error('LLM prompt element not found');
+        return;
+    }
+    
+    const prompt = promptElement.value.trim();
     if (!prompt) {
         alert('请输入日程安排需求');
         return;
     }
     
     // 获取选项
-    const model = document.querySelector('input[name="model"]:checked').value;
-    const recurrence = document.getElementById('recurrence').value;
-    const endDate = document.getElementById('end-date').value;
-    const showSummary = document.getElementById('show-summary').checked;
-    const showChanges = document.getElementById('show-changes').checked;
-    const showEvents = document.getElementById('show-events').checked;
-    const showUnchanged = document.getElementById('show-unchanged').checked;
+    const modelInput = document.querySelector('input[name="model"]:checked');
+    if (!modelInput) {
+        console.error('Model selection not found');
+        return;
+    }
+    const model = modelInput.value;
+    
+    const recurrenceElement = document.getElementById('recurrence');
+    const recurrence = recurrenceElement ? recurrenceElement.value : '';
+    
+    const endDateElement = document.getElementById('end-date');
+    const endDate = endDateElement ? endDateElement.value : '';
+    
+    const showSummaryElement = document.getElementById('show-summary');
+    const showSummary = showSummaryElement ? showSummaryElement.checked : true;
+    
+    const showChangesElement = document.getElementById('show-changes');
+    const showChanges = showChangesElement ? showChangesElement.checked : true;
+    
+    const showEventsElement = document.getElementById('show-events');
+    const showEvents = showEventsElement ? showEventsElement.checked : false;
+    
+    const showUnchangedElement = document.getElementById('show-unchanged');
+    const showUnchanged = showUnchangedElement ? showUnchangedElement.checked : false;
+    
+    const queryTypeInput = document.querySelector('input[name="query_type"]:checked');
+    if (!queryTypeInput) {
+        console.error('Query type selection not found');
+        return;
+    }
+    const queryType = queryTypeInput.value;
     
     // 显示加载指示器
-    document.getElementById('loading-indicator').classList.remove('hidden');
-    document.getElementById('submit-llm').disabled = true;
+    const loadingIndicator = document.getElementById('loading-indicator');
+    if (loadingIndicator) {
+        loadingIndicator.classList.remove('hidden');
+    }
+    
+    const submitButton = document.getElementById('submit-llm');
+    if (submitButton) {
+        submitButton.disabled = true;
+    }
     
     // 准备请求数据
     const requestData = {
@@ -1817,7 +1950,7 @@ function submitLLMQuery() {
         show_changes: showChanges,
         show_events: showEvents,
         show_unchanged: showUnchanged,
-        query_type: document.querySelector('input[name="query_type"]:checked').value
+        query_type: queryType
     };
     
     // 发送API请求
@@ -1831,46 +1964,73 @@ function submitLLMQuery() {
     .then(response => response.json())
     .then(data => {
         // 隐藏加载指示器
-        document.getElementById('loading-indicator').classList.add('hidden');
-        document.getElementById('submit-llm').disabled = false;
+        if (loadingIndicator) {
+            loadingIndicator.classList.add('hidden');
+        }
+        
+        if (submitButton) {
+            submitButton.disabled = false;
+        }
         
         // 显示结果区域
-        document.querySelector('.llm-form').classList.add('hidden');
-        document.getElementById('llm-results').classList.remove('hidden');
+        const llmForm = document.querySelector('.llm-form');
+        if (llmForm) {
+            llmForm.classList.add('hidden');
+        }
+        
+        const llmResults = document.getElementById('llm-results');
+        if (llmResults) {
+            llmResults.classList.remove('hidden');
+        }
         
         // 显示模型回复
-        document.getElementById('llm-response').textContent = data.response || '';
+        const llmResponse = document.getElementById('llm-response');
+        if (llmResponse) {
+            llmResponse.textContent = data.response || '';
+        }
         
         // 显示处理摘要（如果有）
-        if (data.summary && showSummary) {
-            document.getElementById('summary-section').classList.remove('hidden');
-            document.getElementById('summary-content').textContent = data.summary;
-        } else {
-            document.getElementById('summary-section').classList.add('hidden');
+        const summarySection = document.getElementById('summary-section');
+        const summaryContent = document.getElementById('summary-content');
+        
+        if (data.summary && showSummary && summarySection && summaryContent) {
+            summarySection.classList.remove('hidden');
+            summaryContent.textContent = data.summary;
+        } else if (summarySection) {
+            summarySection.classList.add('hidden');
         }
         
         // 显示变更详情（如果有）
-        if (data.changes && showChanges) {
-            document.getElementById('changes-section').classList.remove('hidden');
-            document.getElementById('changes-content').textContent = data.changes;
-        } else {
-            document.getElementById('changes-section').classList.add('hidden');
+        const changesSection = document.getElementById('changes-section');
+        const changesContent = document.getElementById('changes-content');
+        
+        if (data.changes && showChanges && changesSection && changesContent) {
+            changesSection.classList.remove('hidden');
+            changesContent.textContent = data.changes;
+        } else if (changesSection) {
+            changesSection.classList.add('hidden');
         }
         
         // 显示所有事件（如果需要）
-        if (data.events && showEvents) {
-            document.getElementById('events-section').classList.remove('hidden');
-            document.getElementById('events-content').textContent = data.events;
-        } else {
-            document.getElementById('events-section').classList.add('hidden');
+        const eventsSection = document.getElementById('events-section');
+        const eventsContent = document.getElementById('events-content');
+        
+        if (data.events && showEvents && eventsSection && eventsContent) {
+            eventsSection.classList.remove('hidden');
+            eventsContent.textContent = data.events;
+        } else if (eventsSection) {
+            eventsSection.classList.add('hidden');
         }
         
         // 显示错误信息（如果有）
-        if (data.error) {
-            document.getElementById('error-section').classList.remove('hidden');
-            document.getElementById('error-content').textContent = data.error;
-        } else {
-            document.getElementById('error-section').classList.add('hidden');
+        const errorSection = document.getElementById('error-section');
+        const errorContent = document.getElementById('error-content');
+        
+        if (data.error && errorSection && errorContent) {
+            errorSection.classList.remove('hidden');
+            errorContent.textContent = data.error;
+        } else if (errorSection) {
+            errorSection.classList.add('hidden');
         }
         
         // 刷新事件数据
@@ -1878,12 +2038,22 @@ function submitLLMQuery() {
     })
     .catch(error => {
         // 隐藏加载指示器
-        document.getElementById('loading-indicator').classList.add('hidden');
-        document.getElementById('submit-llm').disabled = false;
+        if (loadingIndicator) {
+            loadingIndicator.classList.add('hidden');
+        }
+        
+        if (submitButton) {
+            submitButton.disabled = false;
+        }
         
         // 显示错误信息
-        document.getElementById('error-section').classList.remove('hidden');
-        document.getElementById('error-content').textContent = '请求失败: ' + error.message;
+        const errorSection = document.getElementById('error-section');
+        const errorContent = document.getElementById('error-content');
+        
+        if (errorSection && errorContent) {
+            errorSection.classList.remove('hidden');
+            errorContent.textContent = '请求失败: ' + error.message;
+        }
         
         console.error('LLM查询失败:', error);
     });
