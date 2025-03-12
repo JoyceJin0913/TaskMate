@@ -1160,6 +1160,59 @@ select:focus {
     color: var(--text-color);
 }
 
+/* 事件详情面板中的按钮容器 */
+#event-details-content {
+    display: flex;
+    flex-direction: column;
+}
+
+/* 事件详情面板中的按钮样式 */
+#event-details-content .action-button {
+    align-self: center;
+    margin-top: 20px;
+    min-width: 180px;
+    padding: 12px 24px;
+    font-size: 15px;
+    border-radius: var(--border-radius-sm);
+    font-weight: 500;
+    text-align: center;
+    white-space: nowrap;
+    box-shadow: var(--shadow-sm);
+    transition: all var(--transition-speed);
+}
+
+/* 事件详情面板中的删除按钮样式 */
+#event-details-content .delete-button {
+    background-color: #f44336;
+    color: white;
+    border: none;
+}
+
+#event-details-content .delete-button:hover {
+    background-color: #d32f2f;
+    box-shadow: var(--shadow-md);
+}
+
+/* 事件详情面板中的完成按钮样式 */
+#event-details-content .complete-button {
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+}
+
+#event-details-content .complete-button:hover {
+    background-color: #388E3C;
+    box-shadow: var(--shadow-md);
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+    #event-details-content .action-button {
+        width: 100%;
+        min-width: unset;
+    }
+}
+
 .dialog-content .form-group {
     margin-bottom: 20px;
 }
