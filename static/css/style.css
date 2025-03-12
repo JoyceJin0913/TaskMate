@@ -351,13 +351,30 @@ button:active {
     cursor: pointer;
     position: relative;
     transition: all var(--transition-speed);
+    border-left-width: 3px;
+    border-left-style: solid;
+}
+
+/* 月视图中的事件悬停效果 */
+.day-cell .event-item:hover {
+    z-index: 100;
+    box-shadow: var(--shadow-md);
+    transform: translateY(-1px);
+    min-height: auto;
+    position: relative;
+    border-radius: var(--border-radius-sm);
+    padding: 4px 25px 4px 5px;
+    width: auto;
+    word-wrap: break-word;
+    overflow: visible;
+    margin-right: -10px;
 }
 
 /* 已完成事件样式 */
 .event-item.completed {
     text-decoration: line-through;
     opacity: 0.7;
-    background-color: #f0f0f0 !important;
+    background: #f0f0f0 !important;
     color: #666 !important;
     border-left: 3px solid #999 !important;
 }
@@ -366,7 +383,7 @@ button:active {
 .day-column .event-item.completed {
     text-decoration: line-through;
     opacity: 0.7;
-    background-color: rgba(240, 240, 240, 0.9) !important;
+    background: rgba(240, 240, 240, 0.9) !important;
     color: #666 !important;
     border-left: 3px solid #999 !important;
 }
@@ -593,6 +610,8 @@ button:active {
     line-height: 1.3;
     display: flex;
     flex-direction: column;
+    border-left-width: 4px;
+    border-left-style: solid;
 }
 
 .week-day-column .event-item:hover,
@@ -629,23 +648,93 @@ button:active {
 
 /* 事件类型样式 */
 .event-item.type-meeting {
-    background-color: var(--primary-color);
+    background: linear-gradient(135deg, #4361ee, #3a0ca3);
     color: white;
+    border-left: 4px solid #3a0ca3;
 }
 
 .event-item.type-task {
-    background-color: var(--secondary-color);
+    background: linear-gradient(135deg, #4cc9f0, #4895ef);
     color: white;
+    border-left: 4px solid #4895ef;
 }
 
 .event-item.type-deadline {
-    background-color: var(--warning-color);
+    background: linear-gradient(135deg, #fbbf24, #f59e0b);
     color: white;
+    border-left: 4px solid #f59e0b;
 }
 
 .event-item.type-other {
-    background-color: var(--info-color);
+    background: linear-gradient(135deg, #60a5fa, #3b82f6);
     color: white;
+    border-left: 4px solid #3b82f6;
+}
+
+/* 添加更多事件类型样式 */
+.event-item.type-personal {
+    background: linear-gradient(135deg, #10b981, #059669);
+    color: white;
+    border-left: 4px solid #059669;
+}
+
+.event-item.type-important {
+    background: linear-gradient(135deg, #ef4444, #dc2626);
+    color: white;
+    border-left: 4px solid #dc2626;
+}
+
+.event-item.type-reminder {
+    background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+    color: white;
+    border-left: 4px solid #7c3aed;
+}
+
+.event-item.type-appointment {
+    background: linear-gradient(135deg, #ec4899, #db2777);
+    color: white;
+    border-left: 4px solid #db2777;
+}
+
+/* 添加事件类型的悬停效果 */
+.event-item.type-meeting:hover {
+    background: linear-gradient(135deg, #4361ee, #3a0ca3);
+    filter: brightness(1.1);
+}
+
+.event-item.type-task:hover {
+    background: linear-gradient(135deg, #4cc9f0, #4895ef);
+    filter: brightness(1.1);
+}
+
+.event-item.type-deadline:hover {
+    background: linear-gradient(135deg, #fbbf24, #f59e0b);
+    filter: brightness(1.1);
+}
+
+.event-item.type-other:hover {
+    background: linear-gradient(135deg, #60a5fa, #3b82f6);
+    filter: brightness(1.1);
+}
+
+.event-item.type-personal:hover {
+    background: linear-gradient(135deg, #10b981, #059669);
+    filter: brightness(1.1);
+}
+
+.event-item.type-important:hover {
+    background: linear-gradient(135deg, #ef4444, #dc2626);
+    filter: brightness(1.1);
+}
+
+.event-item.type-reminder:hover {
+    background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+    filter: brightness(1.1);
+}
+
+.event-item.type-appointment:hover {
+    background: linear-gradient(135deg, #ec4899, #db2777);
+    filter: brightness(1.1);
 }
 
 /* 周视图样式 */
@@ -1635,18 +1724,14 @@ input[type="time"]:focus {
 
 /* 月视图中的事件项悬停效果 */
 .day-cell .event-item:hover {
-    //white-space: normal;
     z-index: 100;
     box-shadow: var(--shadow-md);
     transform: translateY(-1px);
     min-height: auto;
-    //height: auto !important;
-    //max-height: none !important;
     position: relative;
     border-radius: var(--border-radius-sm);
     padding: 4px 25px 4px 5px;
     width: auto;
-    //max-width: 200px;
     word-wrap: break-word;
     overflow: visible;
     margin-right: -10px;
