@@ -546,7 +546,7 @@ button.complete-button:hover {
     left: 0; /* 固定在左侧 */
     z-index: 50; /* 确保在最上层 */
     width: 60px; /* 固定宽度 */
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); /* 添加轻微阴影效果 */
+    box-shadow: 2px 0 5px rgba(0, 0, 0, 0.05); /* 添加轻微阴影效果 */
 }
 
 .time-cell {
@@ -557,11 +557,36 @@ button.complete-button:hover {
     line-height: 30px; /* 垂直居中 */
     border-bottom: 1px dashed var(--border-color); /* 添加分隔线 */
     color: var(--text-light);
-    background-color: var(--card-color); /* 添加背景色 */
-    border-radius: var(--border-radius-sm); /* 添加圆角 */
-    font-weight: 600; /* 加粗字体 */
-    color: var(--text-color); /* 改变字体颜色 */
-    font-size: 13px; /* 调整字体大小 */
+}
+
+/* 时间标签样式 */
+.time-label {
+    position: absolute;
+    right: 10px;
+    font-size: 12px;
+    color: var(--text-light);
+    font-weight: 500;
+    background-color: var(--background-color);
+    padding: 2px 4px;
+    border-radius: 3px;
+    transform: translateY(-50%);
+    z-index: 5;
+}
+
+/* 小时线样式 */
+.hour-line {
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background-color: var(--border-color);
+    z-index: 1;
+}
+
+/* 半小时线样式 */
+.hour-line.half-hour {
+    border-top: 1px dotted var(--border-color);
+    opacity: 0.7;
 }
 
 .week-day-column, .day-column {
@@ -583,20 +608,28 @@ button.complete-button:hover {
     z-index: 10;
 }
 
+/* 日期名称样式 */
+.day-name {
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 3px;
+}
+
+/* 日期数字样式 */
+.day-date {
+    font-size: 12px;
+    color: var(--text-light);
+}
+
 .week-day-header.today {
     background-color: var(--today-highlight);
     color: var(--primary-color);
     font-weight: 700;
 }
 
-/* 小时线样式 */
-.hour-line {
-    position: absolute;
-    left: 0;
-    right: 0;
-    height: 1px;
-    background-color: var(--border-color);
-    z-index: 1;
+.week-day-header.today .day-date {
+    color: var(--primary-color);
+    font-weight: 600;
 }
 
 /* 当前时间指示线 */
