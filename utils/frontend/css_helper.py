@@ -1636,18 +1636,18 @@ input[type="time"]:focus {
 
 /* 月视图中的事件项悬停效果 */
 .day-cell .event-item:hover {
-    white-space: normal;
+    //white-space: normal;
     z-index: 100;
     box-shadow: var(--shadow-md);
     transform: translateY(-1px);
     min-height: auto;
-    height: auto !important;
-    max-height: none !important;
+    //height: auto !important;
+    //max-height: none !important;
     position: relative;
     border-radius: var(--border-radius-sm);
     padding: 4px 25px 4px 5px;
     width: auto;
-    max-width: 200px;
+    //max-width: 200px;
     word-wrap: break-word;
     overflow: visible;
     margin-right: -10px;
