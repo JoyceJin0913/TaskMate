@@ -408,6 +408,9 @@ button:active {
     align-items: center;
     justify-content: center;
     z-index: 10;
+    transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+    transform-style: preserve-3d;
+    backface-visibility: hidden;
 }
 
 /* 周视图和日视图中的完成按钮样式 */
@@ -420,7 +423,24 @@ button:active {
 }
 
 .complete-button:hover {
-    background-color: #f0f0f0;
+    background-color: #4CAF50;
+    color: white;
+    border-color: #4CAF50;
+    transform: translateY(-50%); /* 保持原位置 */
+}
+
+.day-column .complete-button:hover {
+    transform: none; /* 保持原位置 */
+}
+
+/* 覆盖任何可能的继承变换 */
+button.complete-button:hover {
+    transform: translateY(-50%);
+    box-shadow: none;
+}
+
+.day-column button.complete-button:hover {
+    transform: none;
 }
 
 /* 已完成视图样式 */

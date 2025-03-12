@@ -823,7 +823,7 @@ function renderEventItem(event, container, options = {}) {
             // 未完成事件 - 添加完成按钮
             const completeButton = document.createElement('button');
             completeButton.className = 'complete-button';
-            completeButton.textContent = '○';
+            completeButton.textContent = '✓';
             completeButton.title = '标记为已完成';
             
             // 阻止事件冒泡，避免点击按钮时触发事件详情
